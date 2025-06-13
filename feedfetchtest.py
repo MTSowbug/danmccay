@@ -254,14 +254,15 @@ def download_missing_pdfs(
 if __name__ == "__main__":
     import sys
 
-    mode = sys.argv[1] if len(sys.argv) > 1 else "rss"
-    if mode == "rss":
+    args = [arg.lower() for arg in sys.argv[1:]]
+
+    if any("rss" in arg for arg in args):
         fetch_recent_articles(
             "mccayfeeds.opml",
             hours=24,
             download_pdfs=False,
         )
-    elif mode == "pdf":
+    elif any("pdf" in arg for arg in args):
         download_missing_pdfs()
     else:
         print("Usage: python feedfetchtest.py [rss|pdf]")
