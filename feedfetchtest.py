@@ -92,16 +92,16 @@ def _sanitize_filename(name: str) -> str:
     return safe[:50]
 
 
-def _extract_shell_commands(text: str) -> List[str]:
-    """Return shell commands contained in *text*."""
+def _extract_shell_script(text: str) -> str:
+    """Return the bash script contained in *text*."""
     m = re.search(r"```(?:bash)?\n(.*?)```", text, re.S)
     if m:
         text = m.group(1)
-    return [line.strip() for line in text.splitlines() if line.strip()]
+    return text.strip()
 
 
-def _llm_shell_commands(entry) -> List[str]:
-    """Ask the LLM for shell commands to download *entry* as a PDF."""
+def _llm_shell_commands(entry, dest_dir: Path) -> str:
+    """Ask the LLM for a shell script to download *entry* and execute it."""
     client = openai.OpenAI()
     messages = [
         {
@@ -130,12 +130,27 @@ def _llm_shell_commands(entry) -> List[str]:
         )
     except Exception as exc:
         print(f"LLM request failed: {exc}")
-        return []
+        return ""
 
-    text = resp.choices[0].message.content.strip()
-    commands = _extract_shell_commands(text)
-    print(f"LLM extracted commands: {commands}")
-    return commands
+    script = _extract_shell_script(resp.choices[0].message.content.strip())
+    print(f"LLM provided script:\n{script}")
+
+    try:
+        result = subprocess.run(
+            script,
+            shell=True,
+            cwd=dest_dir,
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout + result.stderr
+        if output:
+            print(f"Script output:\n{output}")
+    except Exception as exc:
+        print(f"Script execution failed: {exc}")
+        output = ""
+
+    return output
 
 
 def _is_safe_command(cmd: str) -> bool:
@@ -149,26 +164,11 @@ def _is_safe_command(cmd: str) -> bool:
 
 
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
-    """Try to download a PDF for *entry* into *dest_dir* using LLM commands."""
-    commands = _llm_shell_commands(entry)
-    if not commands:
-        return None
-
+    """Try to download a PDF for *entry* into *dest_dir* using an LLM script."""
     dest_dir.mkdir(exist_ok=True)
     before = set(dest_dir.glob("*.pdf"))
 
-    #test
-
-    for cmd in commands:
-        #if not _is_safe_command(cmd):
-        #    print(f"Skipping unsafe command: {cmd}")
-        #    continue
-        try:
-            subprocess.run(cmd, shell=True, cwd=dest_dir)
-        except Exception as exc:
-            print(f"Command failed: {cmd}: {exc}")
-        # Pause between requests to avoid spamming servers
-        time.sleep(random.uniform(5, 10))
+    _llm_shell_commands(entry, dest_dir)
 
     after = set(dest_dir.glob("*.pdf"))
     new_files = after - before
@@ -219,6 +219,7 @@ def fetch_recent_articles(
                 pdf_path = _download_pdf(entry, _PDF_DIR)
                 if pdf_path:
                     articles[key]["pdf"] = str(pdf_path)
+                time.sleep(random.uniform(5, 10))
             print(entry.title)
 
     if json_path is not None:
@@ -254,6 +255,7 @@ def download_missing_pdfs(
         if pdf_path:
             data["pdf"] = str(pdf_path)
             updated = True
+        time.sleep(random.uniform(5, 10))
 
     if updated:
         _save_articles(articles, json_path)
