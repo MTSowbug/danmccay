@@ -18,6 +18,10 @@ import xml.etree.ElementTree as _ET
 from pathlib import Path
 from typing import Dict, List
 
+import re
+import urllib.parse
+import urllib.request
+
 import feedparser as _fp
 
 
@@ -43,6 +47,44 @@ def _entry_timestamp(entry) -> _dt.datetime | None:
     if ts is None:
         return None
     return _dt.datetime(*ts[:6], tzinfo=_dt.timezone.utc)
+
+
+def _sanitize_filename(name: str) -> str:
+    """Return *name* stripped to a safe filesystem format."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
+    return safe[:50]
+
+
+def _download_pdf(entry, dest_dir: Path) -> Path | None:
+    """Try to download a PDF for *entry* into *dest_dir*."""
+    pdf_url = None
+    for link in getattr(entry, "links", []):
+        if "pdf" in link.get("type", "").lower():
+            pdf_url = link.get("href")
+            break
+    if not pdf_url:
+        try:
+            with urllib.request.urlopen(entry.link) as resp:
+                html = resp.read().decode("utf-8", "ignore")
+            m = re.search(r"href=[\'\"](.*?\.pdf)[\'\"]", html, re.I)
+            if m:
+                pdf_url = urllib.parse.urljoin(entry.link, m.group(1))
+        except Exception as e:
+            print(f"Could not inspect page for PDF: {e}")
+            return None
+    if not pdf_url:
+        return None
+
+    dest_dir.mkdir(exist_ok=True)
+    filename = _sanitize_filename(entry.title) + ".pdf"
+    dest = dest_dir / filename
+    try:
+        urllib.request.urlretrieve(pdf_url, dest)
+        print(f"Downloaded PDF {dest}")
+        return dest
+    except Exception as e:
+        print(f"Failed to download PDF {pdf_url}: {e}")
+        return None
 
 
 def fetch_recent_articles(
@@ -78,6 +120,9 @@ def fetch_recent_articles(
                 "published": ts.isoformat(),
                 "feed": parsed.feed.get("title", feed_url),
             }
+            pdf_path = _download_pdf(entry, Path("pdfs"))
+            if pdf_path:
+                articles[key]["pdf"] = str(pdf_path)
             print(entry.title)
 
     return articles
