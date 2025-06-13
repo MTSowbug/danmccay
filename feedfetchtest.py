@@ -26,6 +26,8 @@ import urllib.request
 import openai
 import subprocess
 import shlex
+import time
+import random
 
 import feedparser as _fp
 
@@ -163,6 +165,8 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
             subprocess.run(cmd, shell=True, cwd=dest_dir)
         except Exception as exc:
             print(f"Command failed: {cmd}: {exc}")
+        # Pause between requests to avoid spamming servers
+        time.sleep(random.uniform(5, 10))
 
     after = set(dest_dir.glob("*.pdf"))
     new_files = after - before
