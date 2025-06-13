@@ -23,6 +23,8 @@ import urllib.parse
 import urllib.request
 
 import openai
+import subprocess
+import shlex
 
 import feedparser as _fp
 
@@ -57,65 +59,85 @@ def _sanitize_filename(name: str) -> str:
     return safe[:50]
 
 
-def _llm_pdf_link(entry) -> str | None:
-    """Use OpenAI to determine the PDF URL for the peer-reviewed article."""
+def _extract_shell_commands(text: str) -> List[str]:
+    """Return shell commands contained in *text*."""
+    m = re.search(r"```(?:bash)?\n(.*?)```", text, re.S)
+    if m:
+        text = m.group(1)
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _llm_shell_commands(entry) -> List[str]:
+    """Ask the LLM for shell commands to download *entry* as a PDF."""
     client = openai.OpenAI()
     messages = [
         {
             "role": "system",
             "content": (
-                "You provide Linux shell commands for obtaining peer-reviewed scientific"
-                " articles as PDFs."
+                "You provide Linux shell commands for obtaining peer-reviewed scientific articles as PDFs."
             ),
         },
         {
             "role": "user",
             "content": (
                 "Give me shell commands to download the peer-reviewed article "
-                "referenced by this page to the current directory. Use wget or curl with"
-                " the direct PDF link when possible. If no direct link exists, return "
-                "commands to fetch the landing page and briefly explain how to get the"
-                f" article.\nTitle: {entry.title}\nURL: {entry.link}"
+                "referenced by this page to the current directory. Use wget or curl with "
+                "the direct PDF link when possible and provide no commentary. "
+                f"Title: {entry.title}\nURL: {entry.link}"
             ),
         },
     ]
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4.1-2025-04-14",
             messages=messages,
             max_tokens=200,
             temperature=0,
         )
     except Exception as exc:
         print(f"LLM request failed: {exc}")
-        return None
+        return []
 
     text = resp.choices[0].message.content.strip()
-    m = re.search(r"https?://\S+\.pdf", text)
-    if m:
-        return m.group(0)
+    return _extract_shell_commands(text)
 
-    print(f"LLM response did not contain a PDF link: {text}")
-    return None
+
+def _is_safe_command(cmd: str) -> bool:
+    """Check if *cmd* looks safe to execute."""
+    if re.search(r"[;&|`$]", cmd):
+        return False
+    tokens = shlex.split(cmd)
+    if not tokens:
+        return False
+    return tokens[0] in {"wget", "curl"}
 
 
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
-    """Try to download a PDF for *entry* into *dest_dir*."""
-    pdf_url = _llm_pdf_link(entry)
-    if not pdf_url:
+    """Try to download a PDF for *entry* into *dest_dir* using LLM commands."""
+    commands = _llm_shell_commands(entry)
+    if not commands:
         return None
 
     dest_dir.mkdir(exist_ok=True)
-    filename = _sanitize_filename(entry.title) + ".pdf"
-    dest = dest_dir / filename
-    try:
-        urllib.request.urlretrieve(pdf_url, dest)
-        print(f"Downloaded PDF {dest}")
-        return dest
-    except Exception as e:
-        print(f"Failed to download PDF {pdf_url}: {e}")
-        return None
+    before = set(dest_dir.glob("*.pdf"))
+
+    for cmd in commands:
+        if not _is_safe_command(cmd):
+            print(f"Skipping unsafe command: {cmd}")
+            continue
+        try:
+            subprocess.run(cmd, shell=True, cwd=dest_dir)
+        except Exception as exc:
+            print(f"Command failed: {cmd}: {exc}")
+
+    after = set(dest_dir.glob("*.pdf"))
+    new_files = after - before
+    if new_files:
+        pdf = new_files.pop()
+        print(f"Downloaded PDF {pdf}")
+        return pdf
+    return None
 
 
 def fetch_recent_articles(
