@@ -64,16 +64,18 @@ def _llm_pdf_link(entry) -> str | None:
         {
             "role": "system",
             "content": (
-                "You help identify direct PDF links for peer-reviewed scientific articles."
+                "You provide Linux shell commands for obtaining peer-reviewed scientific"
+                " articles as PDFs."
             ),
         },
         {
             "role": "user",
             "content": (
-                "Find the direct PDF link to the peer-reviewed article referenced by "
-                f"this page. If no direct link exists, say so and provide brief "
-                f"instructions on how to obtain the article.\n"
-                f"Title: {entry.title}\nURL: {entry.link}"
+                "Give me shell commands to download the peer-reviewed article "
+                "referenced by this page to the current directory. Use wget or curl with"
+                " the direct PDF link when possible. If no direct link exists, return "
+                "commands to fetch the landing page and briefly explain how to get the"
+                f" article.\nTitle: {entry.title}\nURL: {entry.link}"
             ),
         },
     ]
