@@ -23,8 +23,11 @@ import unicodedata
 from strip_ansi import strip_ansi
 from collections import deque
 
-
-os.environ["OPENAI_API_KEY"] = "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"
+# Ensure the OpenAI API key is provided via an environment variable.
+if "OPENAI_API_KEY" not in os.environ:
+    raise EnvironmentError(
+        "OPENAI_API_KEY environment variable not set. Please export your key."
+    )
 
 
 preprompt = """You are playing a MUD. This room may contain a puzzle, an enemy, a secret exit, or nothing at all. You want to figure it out by typing commands. Try to not exit the room before figuring out what's here.
