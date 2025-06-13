@@ -169,6 +169,7 @@ def fetch_recent_articles(
     opml_source: str | Path,
     hours: int = 24,
     json_path: Path | None = _PDF_DIR / "articles.json",
+    download_pdfs: bool = True,
 ) -> Dict[str, dict]:
     """
     Collect every article newer than *hours* from all feeds in *opml_source*.
@@ -200,9 +201,10 @@ def fetch_recent_articles(
                 "feed": parsed.feed.get("title", feed_url),
                 "metadata": _entry_to_jsonable(entry),
             }
-            pdf_path = _download_pdf(entry, _PDF_DIR)
-            if pdf_path:
-                articles[key]["pdf"] = str(pdf_path)
+            if download_pdfs:
+                pdf_path = _download_pdf(entry, _PDF_DIR)
+                if pdf_path:
+                    articles[key]["pdf"] = str(pdf_path)
             print(entry.title)
 
     if json_path is not None:
@@ -211,6 +213,49 @@ def fetch_recent_articles(
     return articles
 
 
+def download_missing_pdfs(
+    json_path: Path = _PDF_DIR / "articles.json",
+) -> None:
+    """Download PDFs for entries in *json_path* that lack them."""
+    if not json_path.is_file():
+        print(f"JSON file not found: {json_path}")
+        return
+
+    with json_path.open("r", encoding="utf-8") as fh:
+        articles = json.load(fh)
+
+    updated = False
+    for data in articles.values():
+        if data.get("pdf"):
+            continue
+
+        class Entry:
+            pass
+
+        entry = Entry()
+        entry.title = data.get("title", "")
+        entry.link = data.get("link", "")
+
+        pdf_path = _download_pdf(entry, _PDF_DIR)
+        if pdf_path:
+            data["pdf"] = str(pdf_path)
+            updated = True
+
+    if updated:
+        _save_articles(articles, json_path)
+
+
 if __name__ == "__main__":
-    recent_articles = fetch_recent_articles("mccayfeeds.opml", hours=24)
-    print(recent_articles)
+    import sys
+
+    mode = sys.argv[1] if len(sys.argv) > 1 else "rss"
+    if mode == "rss":
+        fetch_recent_articles(
+            "mccayfeeds.opml",
+            hours=24,
+            download_pdfs=False,
+        )
+    elif mode == "pdf":
+        download_missing_pdfs()
+    else:
+        print("Usage: python feedfetchtest.py [rss|pdf]")

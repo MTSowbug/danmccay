@@ -34,13 +34,14 @@ This repository contains experimental tools for interacting with the *Cleft of D
 5. **Run the scripts**
    ```bash
    python codagent_mccay.py        # main MUD agent
-   python feedfetchtest.py         # RSS fetcher example
+   python feedfetchtest.py rss     # update articles.json from RSS feeds
+   python feedfetchtest.py pdf     # download PDFs for stored articles
    ```
 
 ## Files
 
 - `codagent_mccay.py` – telnet-based MUD agent that relies on OpenAI/Anthropic models.
-- `feedfetchtest.py` – example RSS feed downloader.
+- `feedfetchtest.py` – fetch RSS articles or PDFs depending on the command-line argument.
 - `mccayfeeds.opml` – OPML list of RSS feeds used by the fetcher.
 - `danmccay.yaml` – sample configuration for the MUD agent.
 
