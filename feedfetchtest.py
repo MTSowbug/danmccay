@@ -133,7 +133,9 @@ def _llm_shell_commands(entry) -> List[str]:
         return []
 
     text = resp.choices[0].message.content.strip()
-    return _extract_shell_commands(text)
+    commands = _extract_shell_commands(text)
+    print(f"LLM extracted commands: {commands}")
+    return commands
 
 
 def _is_safe_command(cmd: str) -> bool:
