@@ -17,6 +17,7 @@ import datetime as _dt
 import xml.etree.ElementTree as _ET
 from pathlib import Path
 from typing import Dict, List
+import json
 
 import re
 import urllib.parse
@@ -27,6 +28,30 @@ import subprocess
 import shlex
 
 import feedparser as _fp
+
+_BASE_DIR = Path(__file__).resolve().parent
+_PDF_DIR = (_BASE_DIR / "../pdfs").resolve()
+
+
+def _entry_to_jsonable(entry) -> dict:
+    """Return *entry* converted to JSON-friendly types."""
+    return json.loads(json.dumps(dict(entry), default=str))
+
+
+def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
+    """Write *articles* to *output_path*, merging with any existing data."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: Dict[str, dict] = {}
+    if output_path.is_file():
+        with output_path.open("r", encoding="utf-8") as fh:
+            try:
+                existing = json.load(fh)
+            except Exception:
+                existing = {}
+
+    existing.update(articles)
+    with output_path.open("w", encoding="utf-8") as fh:
+        json.dump(existing, fh, indent=2, sort_keys=True)
 
 
 def _extract_feed_urls(opml_source: str | Path) -> List[str]:
@@ -143,6 +168,7 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
 def fetch_recent_articles(
     opml_source: str | Path,
     hours: int = 24,
+    json_path: Path | None = _PDF_DIR / "articles.json",
 ) -> Dict[str, dict]:
     """
     Collect every article newer than *hours* from all feeds in *opml_source*.
@@ -172,11 +198,15 @@ def fetch_recent_articles(
                 "link": entry.link,
                 "published": ts.isoformat(),
                 "feed": parsed.feed.get("title", feed_url),
+                "metadata": _entry_to_jsonable(entry),
             }
-            pdf_path = _download_pdf(entry, Path("pdfs"))
+            pdf_path = _download_pdf(entry, _PDF_DIR)
             if pdf_path:
                 articles[key]["pdf"] = str(pdf_path)
             print(entry.title)
+
+    if json_path is not None:
+        _save_articles(articles, Path(json_path))
 
     return articles
 
