@@ -114,7 +114,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             "role": "user",
             "content": (
                 """
-Provide Linux shell commands to find and download the full text of the scientific article described at this URL: {entry.link}. 
+Provide Linux shell commands to find and download the full text of the scientific article described at this URL: """ + entry.link + """. 
 This link is just a starting point - you will have to determine the URL of the article itself via web browsing. You may not have the correct institutional credentials - you will have to determine whether or not this is true. Provide commands to download the best version of the article available.
 Search the web to find details you need about how the relevant website is structured in order to find the PDF.
 Name the downloaded pdf "article_fulltest_version1.pdf". If you attempt to download multiple versions of the pdf, name them "article_fulltest_version2.pdf", "article_fulltest_version3.pdf", and so on. The best version of the article should be version1, 2nd-best version should be version2, and so on.
@@ -128,10 +128,11 @@ Respond only with shell commands or a shell script that can be directly pasted i
 
     try:
         resp = client.chat.completions.create(
-            model="o3-2025-04-16",
+            model="gpt-4.1-2025-04-14",
             messages=messages,
-            max_tokens=1000,
-            temperature=0,
+            #max_tokens=3000,
+            max_completion_tokens=3000,
+            #temperature=0,
         )
     except Exception as exc:
         print(f"LLM request failed: {exc}")

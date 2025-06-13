@@ -1,7 +1,7 @@
 # Database configuration
 playerfile:
-  name: danolivaw
-  pwd: 13corn12
+  name: danmccay
+  pwd: 13helicases
 
 prompts:
   char: |
@@ -15,12 +15,12 @@ prompts:
     ******
 
 files:
-  state: olivawstate.pk1
-  graph: olivawgraph.txt
-  buffer: olivawbuffer.txt
+  state: mccaystate.pk1
+  graph: mccaygraph.txt
+  buffer: mccaybuffer.txt
 
 finitestate:
-  name: DanOlivaw
+  name: DanMcCay
   rp_relaxation_time: 60
   transition_explore_to_rp: 1
   transition_rp_to_explore: 1
