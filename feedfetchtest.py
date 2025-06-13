@@ -31,6 +31,12 @@ import feedparser as _fp
 
 _BASE_DIR = Path(__file__).resolve().parent
 _PDF_DIR = (_BASE_DIR / "../pdfs").resolve()
+_ARTICLES_JSON = _PDF_DIR / "articles.json"
+
+# Ensure a default articles store exists for convenience
+_PDF_DIR.mkdir(parents=True, exist_ok=True)
+if not _ARTICLES_JSON.is_file():
+    _ARTICLES_JSON.write_text("{}", encoding="utf-8")
 
 
 def _entry_to_jsonable(entry) -> dict:
@@ -168,7 +174,7 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
 def fetch_recent_articles(
     opml_source: str | Path,
     hours: int = 24,
-    json_path: Path | None = _PDF_DIR / "articles.json",
+    json_path: Path | None = _ARTICLES_JSON,
     download_pdfs: bool = True,
 ) -> Dict[str, dict]:
     """
@@ -214,7 +220,7 @@ def fetch_recent_articles(
 
 
 def download_missing_pdfs(
-    json_path: Path = _PDF_DIR / "articles.json",
+    json_path: Path = _ARTICLES_JSON,
 ) -> None:
     """Download PDFs for entries in *json_path* that lack them."""
     if not json_path.is_file():
