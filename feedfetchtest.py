@@ -3,7 +3,7 @@ Fetch every article published in the last 24 h from an OPML list of RSS feeds.
 
 Dependencies
 ------------
-pip install feedparser
+pip install feedparser openai
 
 Usage
 -----
@@ -21,6 +21,8 @@ from typing import Dict, List
 import re
 import urllib.parse
 import urllib.request
+
+import openai
 
 import feedparser as _fp
 
@@ -55,23 +57,50 @@ def _sanitize_filename(name: str) -> str:
     return safe[:50]
 
 
+def _llm_pdf_link(entry) -> str | None:
+    """Use OpenAI to determine the PDF URL for the peer-reviewed article."""
+    client = openai.OpenAI()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You help identify direct PDF links for peer-reviewed scientific articles."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Find the direct PDF link to the peer-reviewed article referenced by "
+                f"this page. If no direct link exists, say so and provide brief "
+                f"instructions on how to obtain the article.\n"
+                f"Title: {entry.title}\nURL: {entry.link}"
+            ),
+        },
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            max_tokens=200,
+            temperature=0,
+        )
+    except Exception as exc:
+        print(f"LLM request failed: {exc}")
+        return None
+
+    text = resp.choices[0].message.content.strip()
+    m = re.search(r"https?://\S+\.pdf", text)
+    if m:
+        return m.group(0)
+
+    print(f"LLM response did not contain a PDF link: {text}")
+    return None
+
+
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
     """Try to download a PDF for *entry* into *dest_dir*."""
-    pdf_url = None
-    for link in getattr(entry, "links", []):
-        if "pdf" in link.get("type", "").lower():
-            pdf_url = link.get("href")
-            break
-    if not pdf_url:
-        try:
-            with urllib.request.urlopen(entry.link) as resp:
-                html = resp.read().decode("utf-8", "ignore")
-            m = re.search(r"href=[\'\"](.*?\.pdf)[\'\"]", html, re.I)
-            if m:
-                pdf_url = urllib.parse.urljoin(entry.link, m.group(1))
-        except Exception as e:
-            print(f"Could not inspect page for PDF: {e}")
-            return None
+    pdf_url = _llm_pdf_link(entry)
     if not pdf_url:
         return None
 
