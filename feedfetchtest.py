@@ -169,6 +169,21 @@ def _is_safe_command(cmd: str) -> bool:
     return tokens[0] in {"wget", "curl"}
 
 
+def _pdf_file_valid(path: Path) -> bool:
+    """Return ``True`` if *path* is plausibly a real article PDF."""
+    if path.stat().st_size < 10_000:
+        print(f"PDF too small: {path}")
+        return False
+    try:
+        from PyPDF2 import PdfReader
+
+        PdfReader(str(path))
+    except Exception as exc:
+        print(f"PDF corrupt: {path} ({exc})")
+        return False
+    return True
+
+
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
     """Try to download a PDF for *entry* into *dest_dir* using an LLM script."""
     dest_dir.mkdir(exist_ok=True)
@@ -177,12 +192,24 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     _llm_shell_commands(entry, dest_dir)
 
     after = set(dest_dir.glob("*.pdf"))
-    new_files = after - before
-    if new_files:
-        pdf = new_files.pop()
-        print(f"Downloaded PDF {pdf}")
-        return pdf
-    return None
+    new_files = sorted(after - before, key=lambda p: p.name)
+
+    valid_pdfs = []
+    for pdf in new_files:
+        if _pdf_file_valid(pdf):
+            valid_pdfs.append(pdf)
+        else:
+            pdf.unlink(missing_ok=True)
+
+    if not valid_pdfs:
+        return None
+
+    chosen = valid_pdfs[0]
+    for extra in valid_pdfs[1:]:
+        extra.unlink(missing_ok=True)
+
+    print(f"Downloaded PDF {chosen}")
+    return chosen
 
 
 def fetch_recent_articles(
