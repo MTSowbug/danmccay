@@ -25,6 +25,7 @@ import urllib.request
 
 import openai
 from models import SPEAKING_MODEL, THINKING_MODEL
+import yaml
 import subprocess
 import shlex
 import time
@@ -338,8 +339,13 @@ def download_missing_pdfs(
 def summarize_articles(
     json_path: Path = _ARTICLES_JSON,
     model: str = THINKING_MODEL,
+    char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
 ) -> str:
-    """Return an LLM-generated summary of all articles in *json_path*."""
+    """Return an LLM-generated summary of all articles in *json_path*.
+
+    The *char_file* YAML is loaded so the ``PAPERS`` section can be filled with
+    an itemised list of papers before sending the prompt to the LLM.
+    """
     if not Path(json_path).is_file():
         print(f"JSON file not found: {json_path}")
         return ""
@@ -356,28 +362,45 @@ def summarize_articles(
         title = data.get("title", "").strip()
         abstract = data.get("abstract", "").strip()
         if title or abstract:
-            text_chunks.append(f"Title: {title}\nAbstract: {abstract}")
+            text_chunks.append((title, abstract))
 
     if not text_chunks:
         print("No articles available for summarization.")
         return ""
 
-    payload = "\n\n".join(text_chunks)
+    # Build the PAPERS section for the character prompt
+    papers_lines = ["PAPERS"]
+    for idx, (title, abstract) in enumerate(text_chunks, 1):
+        title = title or "(no title)"
+        abstract = abstract or "(no abstract)"
+        papers_lines.append(f"{idx}. {title} — {abstract}")
+    papers_lines.append("******")
+    papers_text = "\n".join(papers_lines)
+
+    # Load the base character prompt and inject the papers list
+    try:
+        with Path(char_file).open("r", encoding="utf-8") as fh:
+            core = yaml.safe_load(fh)
+        char_section = core.get("prompts", {}).get("char", {})
+        if isinstance(char_section, dict):
+            parts = [
+                char_section.get("system", ""),
+                char_section.get("rules", ""),
+                char_section.get("personality", ""),
+                char_section.get("background", ""),
+                papers_text,
+            ]
+            char_prompt = "\n".join(parts).strip()
+        else:
+            char_prompt = char_section
+    except Exception as exc:
+        print(f"Failed to load char prompt: {exc}")
+        char_prompt = papers_text
 
     client = openai.OpenAI()
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "You summarize scientific papers from RSS feeds for Dr. Todhunter."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                "Summarize and discuss the following papers:\n" + payload
-            ),
-        },
+        {"role": "system", "content": char_prompt},
+        {"role": "user", "content": "Provide a short summary and discussion."},
     ]
 
     try:
