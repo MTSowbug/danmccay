@@ -24,6 +24,7 @@ from collections import deque
 import datetime as dt
 import logging
 from feedfetchtest import fetch_recent_articles
+from models import SPEAKING_MODEL, THINKING_MODEL
 
 # Character prompt loaded from YAML at runtime
 CHAR_PROMPT = ""
@@ -718,12 +719,11 @@ def call_llm(messages, TOKEN_MAXIMUM=20):
 
     try:
         completion = client.chat.completions.create(
-          model="gpt-4o-mini",
-          #model="gpt-4o-2024-08-06",
+          model=THINKING_MODEL,
           max_tokens=TOKEN_MAXIMUM,
           temperature=1.0,
           messages=messages
-        )                     
+        )
 
         thiscompletion = completion.choices[0].message.content #OpenAI format
     except anthropic.RateLimitError as e: #Occurs when Anthropic throttles us
@@ -877,7 +877,7 @@ def generate_science_preamble(task_desc):
 
     try:
         completion = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=SPEAKING_MODEL,
             messages=messages,
             max_tokens=60,
         )
@@ -958,13 +958,11 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
     for x in range(MAXAICOMMANDS):
         try:
             completion = client.chat.completions.create(
-              #model="gpt-3.5-turbo",
-              model="gpt-4o-mini",
+              model=THINKING_MODEL,
               max_tokens=200,
-              #temperature=1.0,
               temperature=min(MAXIMUM_TEMP, MINIMUM_TEMP + (futility/FUTILITYRECALLTHRESHOLD)*(MAXIMUM_TEMP-MINIMUM_TEMP)),
               messages=messages
-            )             
+            )
             #thiscompletion = completion.content[0].text #Anthropic format
             thiscompletion = completion.choices[0].message.content #OpenAI format
         except (anthropic.RateLimitError, anthropic.BadRequestError) as e: #Occurs when Anthropic throttles us
@@ -1062,12 +1060,11 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
 
     try:
         completion = client.chat.completions.create(
-          #model="gpt-3.5-turbo",
-          model="gpt-4o-mini",
+          model=THINKING_MODEL,
           max_tokens=200,
           temperature=1.0,
           messages=messages
-        )                     
+        )
 
         #thiscompletion = completion.content[0].text #Anthropic format
         thiscompletion = completion.choices[0].message.content #OpenAI format
@@ -1129,12 +1126,11 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
         ]
         try:
             completion = client.chat.completions.create(
-              #model="gpt-3.5-turbo",
-              model="gpt-4o-mini",
-              max_tokens=250,
-              temperature=1.0,
-              messages=messages
-            ) 
+                model=THINKING_MODEL,
+                max_tokens=250,
+                temperature=1.0,
+                messages=messages
+            )
         except RateLimitError as e: #Occurs when Anthropic throttles us
             print("Rate-limited by Anthropic!")
             thiscompletion = "Nope"

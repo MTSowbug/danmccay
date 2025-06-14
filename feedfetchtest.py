@@ -24,6 +24,7 @@ import urllib.parse
 import urllib.request
 
 import openai
+from models import SPEAKING_MODEL, THINKING_MODEL
 import subprocess
 import shlex
 import time
@@ -170,11 +171,9 @@ Respond only with shell commands or a shell script that can be directly pasted i
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-4.1-2025-04-14",
+            model=THINKING_MODEL,
             messages=messages,
-            #max_tokens=3000,
             max_completion_tokens=3000,
-            #temperature=0,
         )
     except Exception as exc:
         print(f"LLM request failed: {exc}")
@@ -338,7 +337,7 @@ def download_missing_pdfs(
 
 def summarize_articles(
     json_path: Path = _ARTICLES_JSON,
-    model: str = "gpt-4o-mini",
+    model: str = THINKING_MODEL,
 ) -> str:
     """Return an LLM-generated summary of all articles in *json_path*."""
     if not Path(json_path).is_file():
