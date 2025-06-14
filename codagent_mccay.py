@@ -21,6 +21,8 @@ import json
 import unicodedata
 from strip_ansi import strip_ansi
 from collections import deque
+import datetime as dt
+from feedfetchtest import fetch_recent_articles
 
 # Ensure the OpenAI API key is provided via an environment variable.
 if "OPENAI_API_KEY" not in os.environ:
@@ -1262,6 +1264,8 @@ lambda chardata: (
 
     finitestate.set_usage_plan(usage_plan)
 
+    last_rss_date = None
+
     try:
         while True:
             if actions % SAVE_INTERVAL == 0 and actions > 0:
@@ -1269,6 +1273,15 @@ lambda chardata: (
                 save_state()
                 
             print("\nSCORE: " + str(score) + " ACTIONS: " + str(actions) + " FUTILITY: " + str(futility) + " COMBATR: " + str(finitestate.combatround) + " MODE: " + str(system_mode))
+
+            now = dt.datetime.now()
+            if now.hour == 6 and (last_rss_date is None or last_rss_date != now.date()):
+                try:
+                    print("Running daily RSS fetch...")
+                    fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
+                except Exception as exc:
+                    print(f"RSS fetch failed: {exc}")
+                last_rss_date = now.date()
 
             #time.sleep(TIMEOUT)
             time.sleep( max(0, TIMEOUT - (time.time()-start_time)) )
