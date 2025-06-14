@@ -38,6 +38,19 @@ This repository contains experimental tools for interacting with the *Cleft of D
    python feedfetchtest.py pdf     # download PDFs for stored articles
    ```
 
+### Running continuously
+
+`codagent_mccay.py` can run as a background daemon so the agent stays
+connected even after you log out. Use the `--daemon` flag:
+
+```bash
+python codagent_mccay.py --daemon --logfile mccay.log --pidfile mccay.pid
+```
+
+The process detaches from the terminal and writes output to the log file
+specified by `--logfile`. The process ID is stored in `--pidfile` so you
+can stop the agent later with `kill $(cat mccay.pid)`.
+
 ## Files
 
 - `codagent_mccay.py` – telnet-based MUD agent that relies on OpenAI/Anthropic models.
