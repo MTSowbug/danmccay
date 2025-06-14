@@ -1386,6 +1386,14 @@ lambda chardata: (
                 print(response)
                 time.sleep(RESTTIME)
                 continue
+            elif "McCay, check RSS" in response:
+                try:
+                    print("Running daily RSS fetch...")
+                    fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
+                except Exception as exc:
+                    print(f"RSS fetch failed: {exc}")
+                last_rss_date = dt.datetime.now().date()
+                continue
             
             match = re.search(r'37&8<<<\[ (.*?) \]>>>37&9', response) #identify prompt and name of the room
 
