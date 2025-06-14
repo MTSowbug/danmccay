@@ -24,7 +24,7 @@ from collections import deque
 import datetime as dt
 import logging
 from feedfetchtest import fetch_recent_articles
-from models import SPEAKING_MODEL, THINKING_MODEL
+from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 
 # Character prompt loaded from YAML at runtime
 CHAR_PROMPT = ""
@@ -719,7 +719,7 @@ def call_llm(messages, TOKEN_MAXIMUM=20):
 
     try:
         completion = client.chat.completions.create(
-          model=THINKING_MODEL,
+          model=MUD_MODEL,
           max_tokens=TOKEN_MAXIMUM,
           temperature=1.0,
           messages=messages
@@ -958,7 +958,7 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
     for x in range(MAXAICOMMANDS):
         try:
             completion = client.chat.completions.create(
-              model=THINKING_MODEL,
+              model=MUD_MODEL,
               max_tokens=200,
               temperature=min(MAXIMUM_TEMP, MINIMUM_TEMP + (futility/FUTILITYRECALLTHRESHOLD)*(MAXIMUM_TEMP-MINIMUM_TEMP)),
               messages=messages
@@ -1060,7 +1060,7 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
 
     try:
         completion = client.chat.completions.create(
-          model=THINKING_MODEL,
+          model=MUD_MODEL,
           max_tokens=200,
           temperature=1.0,
           messages=messages
@@ -1126,7 +1126,7 @@ def use_big_brain(tn, initialmessages, currentloc, exiting, fighting):
         ]
         try:
             completion = client.chat.completions.create(
-                model=THINKING_MODEL,
+                model=MUD_MODEL,
                 max_tokens=250,
                 temperature=1.0,
                 messages=messages
