@@ -353,9 +353,9 @@ class QuenchingState(State):
         #if "It is already empty" in response or "magically recycles itself into thin air" in response:
         #    print("We should buy more drink containers.")
         #    char.enqueue_prioritized_state(10,GetDrinksState())
-        if char.thirst == True:
-            print("I'm still thirsty! Let's buy a drink.")
-            char.enqueue_prioritized_state(10,GetDrinksState())
+        #if char.thirst == True:
+        #    print("I'm still thirsty! Let's buy a drink.")
+        #    char.enqueue_prioritized_state(10,GetDrinksState())
 
         self.is_done = True
 
