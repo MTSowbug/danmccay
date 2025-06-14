@@ -1480,7 +1480,7 @@ lambda chardata: (
                 continue
             elif "McCay, check RSS" in response:
                 say_preamble(tn, "checking the RSS feed")
-                response = send_command(tn, "say I'm checking my RSS feed.")
+                response = send_command(tn, "emote gets to work on his daily RSS feed.")
                 try:
                     print("Running daily RSS fetch...")
                     fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
@@ -1490,7 +1490,7 @@ lambda chardata: (
                 continue
             elif "McCay, weeklong RSS" in response:
                 say_preamble(tn, "checking last week's RSS feed")
-                response = send_command(tn, "say I'm checking last week's RSS feed.")
+                response = send_command(tn, "emote gets to work on his weekly RSS feed.")
                 try:
                     print("Running weeklong RSS fetch...")
                     fetch_recent_articles("mccayfeeds.opml", hours=24*7, download_pdfs=False)
@@ -1500,7 +1500,7 @@ lambda chardata: (
                 continue
             elif "McCay, summarize your RSS" in response:
                 say_preamble(tn, "summarizing the RSS feed")
-                response = send_command(tn, "say I'm summarizing my RSS feed.")
+                response = send_command(tn, "emote prepares to summarize his RSS feed.")
                 try:
                     from feedfetchtest import summarize_articles
                     summary = summarize_articles()
@@ -1510,6 +1510,9 @@ lambda chardata: (
                             send_command(tn, f"say {line}")
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
+                continue
+            elif "McCay, hello" in response:
+                say_preamble(tn, "greetings and smalltalk")
                 continue
             else:
                 response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
