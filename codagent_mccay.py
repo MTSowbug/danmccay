@@ -1513,7 +1513,7 @@ lambda chardata: (
                 response = send_command(tn, "emote prepares to summarize his RSS feed.")
                 try:
                     from feedfetchtest import summarize_articles
-                    summary = summarize_articles()
+                    summary = summarize_articles(char_file=personality_file)
                     if summary:
                         print(summary)
                         for line in summary.splitlines():
