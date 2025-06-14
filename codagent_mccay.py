@@ -1516,6 +1516,7 @@ lambda chardata: (
                 continue
             elif "McCay, hello" in response:
                 say_preamble(tn, "greetings and smalltalk")
+                response = send_command(tn, " ") #or else we get stuck in a hello loop!!
                 continue
             else:
                 response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
