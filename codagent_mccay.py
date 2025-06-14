@@ -1438,6 +1438,15 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
+            elif "McCay, weeklong RSS" in response:
+                response = send_command(tn, "say I'm checking last week's RSS feed.")
+                try:
+                    print("Running weeklong RSS fetch...")
+                    fetch_recent_articles("mccayfeeds.opml", hours=24*7, download_pdfs=False)
+                except Exception as exc:
+                    print(f"RSS fetch failed: {exc}")
+                last_rss_date = dt.datetime.now().date()
+                continue
             else:
                 response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
 
