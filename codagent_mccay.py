@@ -1447,6 +1447,18 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
+            elif "McCay, summarize your RSS" in response:
+                response = send_command(tn, "say I'm summarizing my RSS feed.")
+                try:
+                    from feedfetchtest import summarize_articles
+                    summary = summarize_articles()
+                    if summary:
+                        print(summary)
+                        for line in summary.splitlines():
+                            send_command(tn, f"say {line}")
+                except Exception as exc:
+                    print(f"RSS summary failed: {exc}")
+                continue
             else:
                 response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
 

@@ -336,6 +336,65 @@ def download_missing_pdfs(
         _save_articles(articles, json_path)
 
 
+def summarize_articles(
+    json_path: Path = _ARTICLES_JSON,
+    model: str = "gpt-4o-mini",
+) -> str:
+    """Return an LLM-generated summary of all articles in *json_path*."""
+    if not Path(json_path).is_file():
+        print(f"JSON file not found: {json_path}")
+        return ""
+
+    with Path(json_path).open("r", encoding="utf-8") as fh:
+        try:
+            articles = json.load(fh)
+        except Exception as exc:
+            print(f"Failed to load JSON: {exc}")
+            return ""
+
+    text_chunks = []
+    for data in articles.values():
+        title = data.get("title", "").strip()
+        abstract = data.get("abstract", "").strip()
+        if title or abstract:
+            text_chunks.append(f"Title: {title}\nAbstract: {abstract}")
+
+    if not text_chunks:
+        print("No articles available for summarization.")
+        return ""
+
+    payload = "\n\n".join(text_chunks)
+
+    client = openai.OpenAI()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You summarize scientific papers from RSS feeds for Dr. Todhunter."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Summarize and discuss the following papers:\n" + payload
+            ),
+        },
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=500,
+        )
+        summary = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM request failed: {exc}")
+        summary = ""
+
+    return summary
+
+
 if __name__ == "__main__":
     import sys
 
