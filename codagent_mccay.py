@@ -22,6 +22,7 @@ import unicodedata
 from strip_ansi import strip_ansi
 from collections import deque
 import datetime as dt
+import logging
 from feedfetchtest import fetch_recent_articles
 
 # Ensure the OpenAI API key is provided via an environment variable.
@@ -774,6 +775,23 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 
+def daemonize(log_file="mccay.log", pid_file="mccay.pid"):
+    """Fork the process to run in the background."""
+    if os.fork() > 0:
+        sys.exit(0)
+    os.setsid()
+    if os.fork() > 0:
+        sys.exit(0)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    with open(log_file, "a+") as f:
+        os.dup2(f.fileno(), sys.stdout.fileno())
+        os.dup2(f.fileno(), sys.stderr.fileno())
+    with open(pid_file, "w") as pf:
+        pf.write(str(os.getpid()))
+    logging.basicConfig(filename=log_file, level=logging.INFO)
+
+
 def append_recentbuffer(thistext):
     global recentbuffer
     global core_personality
@@ -1127,13 +1145,31 @@ def main():
         default='danmccay.yaml',
         help='The character file to load (optional)'
     )
+    parser.add_argument(
+        '--daemon',
+        action='store_true',
+        help='Run as a background process'
+    )
+    parser.add_argument(
+        '--logfile',
+        default='mccay.log',
+        help='File to write stdout/stderr when running as a daemon'
+    )
+    parser.add_argument(
+        '--pidfile',
+        default='mccay.pid',
+        help='Location of PID file when running as a daemon'
+    )
 
     # Parse the arguments
     args = parser.parse_args()
-    
+
     # Access the systemMode argument
     system_mode = args.systemMode
     personality_file = args.charFile
+
+    if args.daemon:
+        daemonize(args.logfile, args.pidfile)
 
     print(f"Mode set to: {system_mode}")
 
