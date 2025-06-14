@@ -25,6 +25,9 @@ import datetime as dt
 import logging
 from feedfetchtest import fetch_recent_articles
 
+# Character prompt loaded from YAML at runtime
+CHAR_PROMPT = ""
+
 # Ensure the OpenAI API key is provided via an environment variable.
 if "OPENAI_API_KEY" not in os.environ:
     raise EnvironmentError(
@@ -844,6 +847,49 @@ def send_command(tn, command, prompt='> \n'):
     return response
 
 
+def _say_lines(tn, text):
+    """Split *text* into lines and speak each one via ``say``."""
+    if not text:
+        return
+    for line in text.splitlines():
+        if line.strip():
+            send_command(tn, f"say {line.strip()}")
+
+
+def generate_science_preamble(task_desc):
+    """Return a short in-character preamble for *task_desc*."""
+    if not CHAR_PROMPT:
+        return ""
+
+    client = OpenAI()
+    messages = [
+        {"role": "system", "content": CHAR_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Before starting {task_desc}, say a sentence or two in character."
+            ),
+        },
+    ]
+
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=60,
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as exc:
+        print(f"Preamble generation failed: {exc}")
+        return ""
+
+
+def say_preamble(tn, task_desc):
+    """Generate and speak a preamble for *task_desc*."""
+    text = generate_science_preamble(task_desc)
+    _say_lines(tn, text)
+
+
 def qtable_to_graph(dict):
     graph = {}
     for key, series in dict.items():
@@ -1176,6 +1222,9 @@ def main():
     with open(personality_file, 'r') as file:
         core_personality = yaml.safe_load(file)
 
+    global CHAR_PROMPT
+    CHAR_PROMPT = core_personality.get('prompts', {}).get('char', '')
+
 
     currentloc = 0
     dirToGo = actionspace[0] #sure, why not
@@ -1430,6 +1479,7 @@ lambda chardata: (
                 time.sleep(RESTTIME)
                 continue
             elif "McCay, check RSS" in response:
+                say_preamble(tn, "checking the RSS feed")
                 response = send_command(tn, "say I'm checking my RSS feed.")
                 try:
                     print("Running daily RSS fetch...")
@@ -1439,6 +1489,7 @@ lambda chardata: (
                 last_rss_date = dt.datetime.now().date()
                 continue
             elif "McCay, weeklong RSS" in response:
+                say_preamble(tn, "checking last week's RSS feed")
                 response = send_command(tn, "say I'm checking last week's RSS feed.")
                 try:
                     print("Running weeklong RSS fetch...")
@@ -1448,6 +1499,7 @@ lambda chardata: (
                 last_rss_date = dt.datetime.now().date()
                 continue
             elif "McCay, summarize your RSS" in response:
+                say_preamble(tn, "summarizing the RSS feed")
                 response = send_command(tn, "say I'm summarizing my RSS feed.")
                 try:
                     from feedfetchtest import summarize_articles
