@@ -340,7 +340,9 @@ class QuenchingState(State):
                 response = send_command(char.tn, llmaction)
                 print(response)
                 appendassistant = {"role": "assistant", "content": llmaction}
-                appenduser = {"role": "user", "content": response+postprompt2 }                
+                appenduser = {"role": "user", "content": response+postprompt2 }
+                messages.append(appendassistant)
+                messages.append(appenduser)
             except (anthropic.RateLimitError, anthropic.BadRequestError) as e: #Occurs when Anthropic throttles us
                 print("Rate-limited!")
                 break
