@@ -15,8 +15,7 @@ import hashlib
 from openai import OpenAI
 import os
 import signal
-#import pickle
-import dill as pickle #like pickle, but allos lambdas
+import dill as pickle  # like pickle, but allows lambdas
 import sys
 import json
 import unicodedata
@@ -33,42 +32,6 @@ if "OPENAI_API_KEY" not in os.environ:
 preprompt = """You are playing a MUD. This room may contain a puzzle, an enemy, a secret exit, or nothing at all. You want to figure it out by typing commands. Try to not exit the room before figuring out what's here.
 """
 
-rp_prompt_author = """
-You are an author who specializes in first-person, collaborative, interactive storytelling. You are an excellent writer. When writing with others, you always make sure to put their characters first and do not let yourself take over the narrative. Your characters are allowed to express negative emotions, such as fear, anger, and sadness.
-******
-"""
-
-rp_prompt_interface = """
-You are writing from the perspective of your character, using a MUD interface. The only way you can interact is by typing commands to the MUD. For example, 'say' lets you talk, such as 'say hi'. 'emote' lets you describe actions, such as 'emote is sitting on a bench'. Other commands describing your character's actions, such as 'smile', 'glare', or 'scream', may also work. Your sentences MUST be MUD commands.
-
-Here is the most recent output from the MUD. Lines starting with '>' are commands you've typed:
-
-******
-"""
-
-rp_elicit_storyoutline = """
-As an author, outline a potential narrative story arc involving your character. Your charaacter's background is just a starting point. Build off the MUD output so far. Do not invent new characters. You absolutely MUST NOT ignore other characters, even if it means abandoning your previous story. Assume that, for the remainder of the narrative, you will meet no new people and visit no new locations. Your story outline can be no more than 500 characters.
-"""
-
-rp_elicit_nextcommand = """
-As an author, write what comes next in the narrative.
-
-You can only act for your own character. Let other characters act for themselves. Try to match the mood and tone of whoever you're interacting with. The most recent MUD output tells a story. Attempt to push that story forward. Try not to repeat yourself, and DO NOT ignore what other characters say to you.
-
-Write what happens next using MUD commands. Remember, commands usually start with a word such as 'say' or 'emote'. You may type, at most, 128 characters. You may type only a single command.
-
-If you feel like the story isn't going anywhere, or no one's interacting with you, or you're repeating yourself, or you want to change locations, then type 'REDEPLOYME'.
-"""
-
-rp_eval_storyoutline = """
-Here is the overall narrative you've been using for this story. Is this narrative consistent with the MUD output so far? Think carefully, intelligently, and analytically. Please respond "YES" or "NO".
-***
-"""
-
-transition_explore_rp = """
-You are playing a MUD. You are currently exploring, but sometimes you like to roleplay, especially when other players are around. Given the recent MUD output below, is now a good time to roleplay? Answer YES or NO.
-******
-"""
 
 preprompt_exit = """You are playing a MUD. You are trying to exit this room. You want to figure out how by typing commands.
 """
@@ -80,48 +43,6 @@ retryprompt = """
 This isn't your first time in this room. Whatever you tried last time might have failed. Don't try the first thing that comes to mind. Think differently than usual.
 """
 
-skilltypeprompt_preamble = """
-You are playing a MUD.  You have a new skill: INSERTSKILLHERE. You need to decide whether this skill is a command you need to type and, if so, when you need to type the command for this skill. Here is the helpfile:
-
-***
-"""
-
-
-skilltypeprompt_postamble = """
-***
-
-Based on this information, do you think you need to type the command for this skill? If so, do you type in combat, type out of combat, type at any time, or is a passive skill that you don't need to type? If the helpfile didn't mention, the skill is probably passive.
-
-Your response must be exactly one word. Answer either INCOMBAT, OUTCOMBAT, ANYTIME, or PASSIVE.
-"""
-
-lambdaprompt_preamble = """
-You are playing a MUD.  You have a new skill: INSERTSKILLHERE. You need to decide on a policy for when and how to use this skill. The policy must be implemented as a Python lambda expression.
-
-Here is the helpfile for INSERTSKILLHERE:
-
-***
-"""
-
-lambdaprompt_postamble = """
-***
-Here are all the state variables that your lambda expression has access to:
-
-chardata.health #integer, range 0-100. Your health as a percent.
-chardata.mana #integer, range 0-100. Your mana as a percent.
-chardata.move #integer, range 0-100. Your movement as a percent.
-chardata.combatround #integer, range 0 to 999. If 0, not in combat.
-chardata.opphealth #integer, range 0-100. Enemy's health as a percent.
-chardata.equipment #dictionary. keys are your equipment slots. values are equipment names. Do not use exact string matches. Only use partial string matches. The names of the keys are fuzzy and unreliable.
-
-You can use some, none, or all of these state variables. It's your choice.
-
-Your lambda function should follow the format "lambda chardata: ( EXPRESSION_GOES_HERE )". Your lambda should evaluate to True when the skill should be used and False otherwise. Do not use exact string matches under any circumstances.
-
-It's possible that your accessible state variables don't give you adequate information to use this skill. If so, it is acceptable to have a lambda function that simply returns False.
-
-Now, provide an appropriate Python lambda function. Type nothing else.
-"""
 
 memoryprompt = """
 You've been here before, and you left yourself this advice:
@@ -139,11 +60,6 @@ postprompt = """
 Provide a command. The first word of the command should be one of these: "push, pull, catch, touch, longjump, climb, activate, playmusic, turn, crawl, look, get, put, talk, sit, enter, attack, give, say, target, open, close, wait". Other commands may ocassionally be possible.
 
 Your command must be no longer than five words. Be short and to the point. Type nothing else.
-"""
-
-
-roleplayoutlineprompt = """
-In no more than 500 characters, outline a plausible storyline to roleplay, building off of the MUD output so far. The story could just be starting, or you could be in the middle of it. Remember that roleplaying is collaborative, and this storyline is subject to change based on the actions of others.
 """
 
 postprompt2 = """
@@ -207,10 +123,8 @@ shopTable = {}
 pracTable = {}
 generalmemory = ""
 recentbuffer = ""
-rp_storyline = ""
 commandmemory = {} #this is a dictionary of lists, with each key being a room's hash
 global_response = ""
-state_file = ""
 summarize_counter = 0
 roomsseen = set()
 
@@ -219,28 +133,6 @@ roomsseen = set()
 #prompt 37&8<<<%r>>>37&9<<<%e>>>37&0|%o|%c%u%U37&7HP:%y MP:%m MV:%v Money:%w Lv:%l TNL:%X 37&6
 #color;quiet;noeffects;hint;save also give him a ton of flashlights
 
-xp_function = {
-#    -9: 5,
-#    -8: 10,
-#    -7: 15,
-#    -6: 30,
-    -5: 45,
-    -4: 60,
-    -3: 70,
-    -2: 80,
-    -1: 90,
-    0: 100,
-    1: 110,
-    2: 120,
-    3: 130,
-    4: 140,
-    5: 150,
-#    6: 160,
-#    7: 170,
-#    8: 180,
-#    9: 190,
-#    10: 200
-}
 
 actionspace = [
     "N",
@@ -253,19 +145,6 @@ actionspace = [
     "NW",
     "U",
     "D",
-]
-
-rev_actionspace = [
-    "S",
-    "N",
-    "W",
-    "E",
-    "NW",
-    "NE",
-    "SW",
-    "SE",
-    "D",
-    "U",
 ]
 
 
@@ -331,9 +210,6 @@ class CombatNeutralState(State):
             print("Below health threshold - attempting to flee!")
             response = char.change_state(FleeState())
 
-        #if random.random() < 0.5:
-        #elif random.random() < char.combatround/10:
-        #    char.change_state(BrainState())
 
         else:
             # If we have at least one skill in usagePlan, pick one at random
@@ -426,95 +302,6 @@ class NoState(State):
 
 
 
-class SleepState(State):
-    def __init__(self):
-        self.is_done = False
-
-    def enter(self, char):
-        print(f"{char.name} is entering Sleep state.")
-
-        # Suppose we put a 300-second cooldown for re-entering.
-        char.set_state_cooldown(SleepState, 300)
-
-        if char.hunger:
-            print("I'm hungry.")
-            response = send_command(char.tn, "inventory")
-            messages = []
-            messages.append({"role": "system", "content": [{"type":"text","text":"You are playing a MUD. Your character is hungry."}] })
-            messages.append({"role": "system", "content": [{"type":"text","text":"Here is the recent output from the MUD:" + recentbuffer[-4000:]}] }) 
-            messages.append({"role": "user", "content": [{"type":"text","text":"Type a command that might make you less hungry. Your command must be no longer than five words. Be short and to the point. Type nothing else."}] })
-            llmaction = call_llm(messages)
-            print(llmaction)
-            response = send_command(char.tn, llmaction)
-            print(response)            
-
-        response = send_command(char.tn, "sleep")
-        print(response)
-        char.consecutiveactions = 0
-
-    def execute(self, char):
-        response = False
-        char.consecutiveactions += 1
-        if char.consecutiveactions > 20: #Have we been at this for too long?
-            char.change_state(NoState())
-        if char.health < 100:
-            print("Zzz...")
-            print(char.consecutiveactions)
-            pass
-        else:
-            char.change_state(NoState())
-        return response
-
-    def exit(self, char):
-        print(f"{char.name} is leaving Sleep state.")
-        response = send_command(char.tn, "stand")
-
-
-
-class InventoryManagingState(State):
-    def __init__(self):
-        self.is_done = False
-
-    def enter(self, char):
-        print(f"{char.name} is enering the InventoryManaging state.")
-        char.set_state_cooldown(InventoryManagingState, 60)
-
-    def execute(self, char):
-        response = False
-
-        print(f"{char.name} is trying to manage his inventory.")
-
-        response = send_command(char.tn, "inventory")
-
-        messages = []
-        messages.append({"role": "system", "content": [{"type":"text","text":"You are playing a MUD. Your character is currently encumbered, carrying either too many items or too much weight. Your goal is to become unencumbered."}] })
-        messages.append({"role": "system", "content": [{"type":"text","text":"Here is what you're currently carrying:\n" + response}] })
-        messages.append({"role": "system", "content": [{"type":"text","text":"Commands of interest are 'drop', which lets you put down items, and 'sacrifice', which refunds you some money for items that you've dropped. However, you can type any command you want."}] })
-        messages.append({"role": "system", "content": [{"type":"text","text":"Your command must be no longer than five words. Be short and to the point. Do not use punctuation. Type nothing else."}] })
-
-        for x in range(MAXAICOMMANDS_LONGER):
-            try:
-                llmaction = call_llm(messages)
-                print(llmaction)
-
-                response = send_command(char.tn, llmaction)
-                print(response)
-
-                appendassistant = {"role": "assistant", "content": llmaction}
-                appenduser = {"role": "user", "content": response+postprompt2 }
-                messages.append(appendassistant)
-                messages.append(appenduser)
-
-            except (anthropic.RateLimitError, anthropic.BadRequestError) as e: #Occurs when Anthropic throttles us
-                print("Rate-limited!")
-                break
-
-        self.is_done = True
-
-        return response
-
-    def exit(self, char):
-        print(f"{char.name} is leaving the InventoryManaging state.")
 
 class QuenchingState(State):
     def __init__(self):
@@ -621,70 +408,6 @@ class FeastingState(State):
     def exit(self, char):
         print(f"{char.name} is leaving the Feasting state.")
 
-class AttackState(State):
-    def __init__(self):
-        self.is_done = False
-
-    def enter(self, char):
-        print(f"{char.name} is entering Attack state.")
-
-    def execute(self, char):
-        response = False
-        print(f"{char.name} is attacking the enemy.")
-        char.attack()
-        if char.health < 30:
-            char.change_state(DefendState())
-        elif not char.enemy_in_range():
-            char.change_state(CombatNeutralState())
-
-        return response
-
-    def exit(self, char):
-        print(f"{char.name} is leaving Attack state.")
-
-class DefendState(State):
-    def __init__(self):
-        self.is_done = False
-
-    def enter(self, char):
-        print(f"{char.name} is entering Defend state.")
-
-    def execute(self, char):
-        response = False
-        print(f"{char.name} is defending.")
-        char.defend()
-        if char.health > 70:
-            char.change_state(CombatNeutralState())
-        return response
-
-    def exit(self, char):
-        print(f"{char.name} is leaving Defend state.")
-
-class BrainState(State):
-    def __init__(self):
-        self.is_done = False
-
-    def enter(self, char):
-        print(f"{char.name} is entering Brain state.")
-
-    def execute(self, char):
-        global global_response
-        print(f"{char.name} is thinking.")
-       
-        messages = []
-        messages.append({"role": "system", "content": [{"type":"text","text":preprompt_combat}] })
-        messages.append({"role": "user", "content": [{"type":"text","text":recentbuffer[-2000:] + postprompt + postprompt2}] })
-        #messages.append({"role": "user", "content": [{"type":"text","text":global_response + postprompt + postprompt2}] })
-        llmaction = call_llm(messages)
-        print(llmaction)
-        response = send_command(char.tn, llmaction)
-        print(response)            
-
-        char.change_state(CombatNeutralState())
-
-        return response
-    def exit(self, char):
-        print(f"{char.name} is leaving Brain state.")
 
 
 
@@ -1045,26 +768,6 @@ def signal_handler(signum, frame):
     save_state()
     sys.exit(0)
 
-# Define the softmax function
-def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-def extract_score(input_string):
-    # Regular expression to find numbers enclosed in square brackets
-    match = re.search(r'37&8<<<(.*?)>>>', input_string)
-    if match:
-        # Check if the string matches any of the elements
-        if match.group(1) in roomsseen:
-            return 0
-        else:
-            currentloc = match.group(1)
-            roomsseen.add(currentloc)
-            return 1 #score 1 point!
-
-    else:
-        # Return None if no number is found
-        return 0
 
 def append_recentbuffer(thistext):
     global recentbuffer
@@ -1117,16 +820,6 @@ def send_command(tn, command, prompt='> \n'):
 
     return response
 
-# Convert DataFrame to Graph
-def df_to_graph(df):
-    graph = {}
-    for col in df.columns:
-        # Filter out NaN values and 0 values explicitly
-        connected_nodes = df[col][(df[col] != 0) & (~df[col].isna())].tolist()        
-        #connected_nodes = df[col][df[col] != 0].tolist()
-        graph[col] = {node: 1 for node in connected_nodes if node != col}  # Assuming distance is 1
-    return graph
-
 
 def qtable_to_graph(dict):
     graph = {}
@@ -1137,55 +830,6 @@ def qtable_to_graph(dict):
                 graph[key][value[1]] = 1  # Assuming distance is 1
     return graph
 
-
-#Dijkstra's Algorithm
-def dijkstra(graph, start):
-    # Initialize the shortest paths to infinity
-    shortest_paths = {vertex: float('infinity') for vertex in graph}
-    shortest_paths[start] = 0
-
-    # Initialize the previous nodes to None
-    previous_nodes = {vertex: None for vertex in graph}
-
-    # Use a priority queue to keep track of the nodes to explore
-    priority_queue = [(0, start)]
-
-    while priority_queue:
-        current_distance, current_node = heapq.heappop(priority_queue)
-
-
-        #can this even happen?
-        if current_node not in shortest_paths: 
-            print("Current node not in shortest paths?")
-            print(current_node)
-            continue
-
-        # If the current distance is greater than the recorded shortest path, skip
-        if current_distance > shortest_paths[current_node]:
-            continue
-
-        #can this even happen?
-        if current_node not in graph:
-            print("Current node not in graph?")
-            print(current_node)
-            continue
-
-        # Explore the neighbors of the current node
-        for neighbor, weight in graph[current_node].items():
-            #Sometimes neighbor isn't in shortest_paths. I don't know how this happens.
-            if neighbor not in shortest_paths:
-                shortest_paths[neighbor] = float('inf') #Stopgap solution
-                print(f"Warning: Missing node {neighbor} in shortest_paths. Setting it to inf.")
-
-            distance = current_distance + weight
-
-            # Only consider this new path if it's shorter
-            if distance < shortest_paths[neighbor]:
-                shortest_paths[neighbor] = distance
-                previous_nodes[neighbor] = current_node
-                heapq.heappush(priority_queue, (distance, neighbor))
-
-    return shortest_paths, previous_nodes
 
 
 
@@ -1455,7 +1099,6 @@ def main():
     global futility
     global internal_state
     global braincooldown
-    global rp_storyline
     global core_personality
     global apparentrecallroom
     global finitestate;
