@@ -1357,10 +1357,14 @@ lambda chardata: (
 
             if finitestate.thirst == True:
                 print("I'm thirsty.")
-                finitestate.enqueue_prioritized_state(20,QuenchingState())
+                if not any(isinstance(item.state_obj, QuenchingState) for item in finitestate.state_heap) \
+                   and not isinstance(finitestate.state, QuenchingState):
+                    finitestate.enqueue_prioritized_state(20, QuenchingState())
             if finitestate.hunger == True:
                 print("I'm hungry.")
-                finitestate.enqueue_prioritized_state(20,FeastingState())
+                if not any(isinstance(item.state_obj, FeastingState) for item in finitestate.state_heap) \
+                   and not isinstance(finitestate.state, FeastingState):
+                    finitestate.enqueue_prioritized_state(20, FeastingState())
 
             if finitestate.report_state() != "NoState":
                 continue
