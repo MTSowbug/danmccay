@@ -41,11 +41,6 @@ if not _ARTICLES_JSON.is_file():
     _ARTICLES_JSON.write_text("{}", encoding="utf-8")
 
 
-def _entry_to_jsonable(entry) -> dict:
-    """Return *entry* converted to JSON-friendly types."""
-    return json.loads(json.dumps(dict(entry), default=str))
-
-
 def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
     """Write *articles* to *output_path*, merging with any existing data."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,6 +79,53 @@ def _entry_timestamp(entry) -> _dt.datetime | None:
     if ts is None:
         return None
     return _dt.datetime(*ts[:6], tzinfo=_dt.timezone.utc)
+
+
+def _strip_html(text: str) -> str:
+    """Return *text* with HTML tags removed."""
+    return re.sub(r"<[^>]+>", "", text or "")
+
+
+def _extract_doi(entry) -> str:
+    """Return a DOI string from *entry* if present."""
+    doi = entry.get("dc_identifier") or entry.get("doi") or ""
+    if isinstance(doi, str) and doi.lower().startswith("doi:"):
+        doi = doi.split("doi:", 1)[1].strip()
+    if not doi:
+        # Look for a DOI pattern in id or link fields
+        for field in (entry.get("id"), entry.get("link")):
+            if field:
+                m = re.search(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", str(field), re.I)
+                if m:
+                    doi = m.group(0)
+                    break
+    return doi
+
+
+def _entry_to_article_data(entry) -> dict:
+    """Return a dictionary with standardized article metadata for storage."""
+    ts = _entry_timestamp(entry)
+    authors = []
+    if hasattr(entry, "authors"):
+        authors = [a.get("name") for a in entry.authors if isinstance(a, dict)]
+    elif hasattr(entry, "author"):
+        authors = [entry.author]
+
+    abstract = _strip_html(entry.get("summary") or entry.get("description") or "")
+
+    return {
+        "doi": _extract_doi(entry),
+        "title": entry.get("title", ""),
+        "authors": authors,
+        "journal": entry.get("dc_source") or entry.get("source") or "",
+        "year": ts.year if ts else None,
+        "abstract": abstract,
+        "date-added": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "num-retrievals": 0,
+        "lt-relevance": 0,
+        "dr-relevance": 0,
+        "sbir-relevance": 0,
+    }
 
 
 def _sanitize_filename(name: str) -> str:
@@ -224,7 +266,7 @@ def fetch_recent_articles(
     Returns
     -------
     articles : dict
-        Keys are stable article IDs; values hold title, link, timestamp, and feed.
+        Keys are stable article IDs; values contain standardized article metadata.
     """
     cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=hours)
     articles: Dict[str, dict] = {}
@@ -241,13 +283,8 @@ def fetch_recent_articles(
 
             # Compose a unique, deterministic key
             key = f"{entry.get('id', entry.link)}"
-            articles[key] = {
-                "title": entry.title,
-                "link": entry.link,
-                "published": ts.isoformat(),
-                "feed": parsed.feed.get("title", feed_url),
-                "metadata": _entry_to_jsonable(entry),
-            }
+            article = _entry_to_article_data(entry)
+            articles[key] = article
             if download_pdfs:
                 pdf_path = _download_pdf(entry, _PDF_DIR)
                 if pdf_path:
@@ -282,7 +319,12 @@ def download_missing_pdfs(
 
         entry = Entry()
         entry.title = data.get("title", "")
-        entry.link = data.get("link", "")
+        link = data.get("link", "")
+        if not link:
+            doi = data.get("doi")
+            if doi:
+                link = f"https://doi.org/{doi}"
+        entry.link = link
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
