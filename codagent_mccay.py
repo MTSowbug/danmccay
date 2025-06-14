@@ -1301,11 +1301,6 @@ lambda chardata: (
                 oldlevel = finitestate.level
                 finitestate.level = int(statecheck.group(5))
 
-                #Have we recently leveled up?
-                if oldlevel > 1 and finitestate.level > oldlevel:
-                    print("We leveled up! Turning off bloodthirstiness.");
-                    system_mode = args.systemMode #whatever we were at the start
-
                 finitestate.tnl = int(statecheck.group(6))
                 if "HUNGER" in statecheck.group(0):
                     finitestate.hunger = True
@@ -1357,6 +1352,8 @@ lambda chardata: (
                 continue
 
             #print("Entering non-state action logic")
+
+            response = send_command(tn, " ") #keeps our prompt coming in and stops us from going afk
 
             #special cases - do we need to get up?             
             if "Better stand up first." in response:
