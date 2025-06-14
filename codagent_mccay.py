@@ -1222,7 +1222,18 @@ def main():
         core_personality = yaml.safe_load(file)
 
     global CHAR_PROMPT
-    CHAR_PROMPT = core_personality.get('prompts', {}).get('char', '')
+    char_section = core_personality.get('prompts', {}).get('char', '')
+    if isinstance(char_section, dict):
+        parts = [
+            char_section.get("system", ""),
+            char_section.get("rules", ""),
+            char_section.get("personality", ""),
+            char_section.get("background", ""),
+            char_section.get("papers", ""),
+        ]
+        CHAR_PROMPT = "\n".join(parts).strip()
+    else:
+        CHAR_PROMPT = char_section
 
 
     currentloc = 0
