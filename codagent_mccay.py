@@ -462,15 +462,16 @@ class NPC:
         new_state_class = new_state.__class__
         for scheduled in self.state_heap:
             if isinstance(scheduled.state_obj, new_state_class):
+                return
                 # Allow multiple GearBuyingStates if their target shops differ.
-                if new_state_class == GearBuyingState:
-                    # Compare the target shop keys (stored in chosen_mobhash).
-                    if scheduled.state_obj.chosen_mobhash == new_state.chosen_mobhash:
-                        # Already enqueued a GearBuyingState for the same shop.
-                        return
-                else:
+                #if new_state_class == GearBuyingState:
+                #    # Compare the target shop keys (stored in chosen_mobhash).
+                #    if scheduled.state_obj.chosen_mobhash == new_state.chosen_mobhash:
+                #        # Already enqueued a GearBuyingState for the same shop.
+                #        return
+                #else:
                     # For all other states, disallow duplicates.
-                    return
+                    #return
 
         scheduled = ScheduledState(priority, new_state)
         new_state_name = new_state_class.__name__
