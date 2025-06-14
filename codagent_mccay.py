@@ -1395,7 +1395,7 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
-            else
+            else:
                 response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
 
             match = re.search(r'37&8<<<\[ (.*?) \]>>>37&9', response) #identify prompt and name of the room
