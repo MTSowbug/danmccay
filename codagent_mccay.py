@@ -28,10 +28,12 @@ from feedfetchtest import fetch_recent_articles
 # Character prompt loaded from YAML at runtime
 CHAR_PROMPT = ""
 
-# Ensure the OpenAI API key is provided via an environment variable.
+# Flag indicating whether the OpenAI API key is available.
+OPENAI_AVAILABLE = True
 if "OPENAI_API_KEY" not in os.environ:
-    raise EnvironmentError(
-        "OPENAI_API_KEY environment variable not set. Please export your key."
+    OPENAI_AVAILABLE = False
+    logging.warning(
+        "OPENAI_API_KEY environment variable not set. LLM features will be disabled."
     )
 
 
@@ -858,7 +860,8 @@ def _say_lines(tn, text):
 
 def generate_science_preamble(task_desc):
     """Return a short in-character preamble for *task_desc*."""
-    if not CHAR_PROMPT:
+    if not CHAR_PROMPT or not OPENAI_AVAILABLE:
+        logging.info("Skipping preamble generation; LLM unavailable.")
         return ""
 
     client = OpenAI()
