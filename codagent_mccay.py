@@ -1366,7 +1366,7 @@ lambda chardata: (
 
             #print("Entering non-state action logic")
 
-            response = send_command(tn, " ") #keeps our prompt coming in and stops us from going afk
+            
 
             #special cases - do we need to get up?             
             if "Better stand up first." in response:
@@ -1396,7 +1396,7 @@ lambda chardata: (
             regex = r'(' + re.escape(match.group(1)) + r'.*?)' + re.escape('(] Exits:') #possible shenanigans if we're not ungreedy here
             fullmatch = re.search(regex, response, re.DOTALL)
 
-
+            response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
         # Close the connection
         tn.close()
     except KeyboardInterrupt:
