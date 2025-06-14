@@ -1387,6 +1387,7 @@ lambda chardata: (
                 time.sleep(RESTTIME)
                 continue
             elif "McCay, check RSS" in response:
+                response = send_command(tn, "say I'm checking my RSS feed.")
                 try:
                     print("Running daily RSS fetch...")
                     fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
@@ -1394,7 +1395,9 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
-            
+            else
+                response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
+
             match = re.search(r'37&8<<<\[ (.*?) \]>>>37&9', response) #identify prompt and name of the room
 
             if not match: #somehow, no prompt?
@@ -1404,7 +1407,6 @@ lambda chardata: (
             regex = r'(' + re.escape(match.group(1)) + r'.*?)' + re.escape('(] Exits:') #possible shenanigans if we're not ungreedy here
             fullmatch = re.search(regex, response, re.DOTALL)
 
-            response = send_command(tn, " ") #keeps our prompt coming in, updates us, and stops us from going afk
         # Close the connection
         tn.close()
     except KeyboardInterrupt:
