@@ -408,7 +408,7 @@ def summarize_articles(
             model=model,
             messages=messages,
             #max_tokens=500,
-            max_completion_tokens=500,
+            max_completion_tokens=5000,
         )
         summary = resp.choices[0].message.content
     except Exception as exc:
