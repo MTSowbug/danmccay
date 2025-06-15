@@ -34,9 +34,19 @@ This repository contains experimental tools for interacting with the *Cleft of D
 5. **Run the scripts**
    ```bash
    python codagent_mccay.py        # main MUD agent
-   python feedfetchtest.py rss     # update articles.json from RSS feeds
-   python feedfetchtest.py pdf     # download PDFs for stored articles
-   ```
+ python feedfetchtest.py rss     # update articles.json from RSS feeds
+ python feedfetchtest.py pdf     # download PDFs for stored articles
+  ```
+
+## Testing
+
+Run the unit tests with `pytest`:
+
+```bash
+pytest -q
+```
+
+Tests are automatically executed by GitHub Actions on every push and pull request.
 
 ### Running continuously
 
