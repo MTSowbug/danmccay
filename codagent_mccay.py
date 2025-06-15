@@ -1489,7 +1489,7 @@ lambda chardata: (
                 time.sleep(RESTTIME)
                 continue
             elif "McCay, check RSS" in response:
-                say_preamble(tn, "checking the RSS feed")
+                #say_preamble(tn, "checking the RSS feed")
                 response = send_command(tn, "emote gets to work on his daily RSS feed.")
                 try:
                     print("Running daily RSS fetch...")
@@ -1499,7 +1499,7 @@ lambda chardata: (
                 last_rss_date = dt.datetime.now().date()
                 continue
             elif "McCay, weeklong RSS" in response:
-                say_preamble(tn, "checking last week's RSS feed")
+                #say_preamble(tn, "checking last week's RSS feed")
                 response = send_command(tn, "emote gets to work on his weekly RSS feed.")
                 try:
                     print("Running weeklong RSS fetch...")
@@ -1509,7 +1509,7 @@ lambda chardata: (
                 last_rss_date = dt.datetime.now().date()
                 continue
             elif "McCay, summarize your RSS" in response:
-                say_preamble(tn, "summarizing the RSS feed")
+                #say_preamble(tn, "summarizing the RSS feed")
                 response = send_command(tn, "emote prepares to summarize his RSS feed.")
                 try:
                     from feedfetchtest import summarize_articles
