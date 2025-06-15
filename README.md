@@ -46,6 +46,8 @@ Run the unit tests with `pytest`:
 pytest -q
 ```
 
+The suite covers both the RSS fetcher and helper functions in `codagent_mccay`.
+
 Tests are automatically executed by GitHub Actions on every push and pull request.
 
 ### Running continuously

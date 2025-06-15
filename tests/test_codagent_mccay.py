@@ -2,6 +2,7 @@ import os, sys; sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import builtins
 import types
 import pandas as pd
+
 import codagent_mccay as cam
 
 
@@ -10,6 +11,7 @@ def test_hash_but_doesnt_suck():
     import hashlib
     expected = int(hashlib.sha256('test'.encode('utf-8')).hexdigest(), 16)
     assert val == expected
+
 
 def test_hasher_writes(tmp_path, monkeypatch):
     log = tmp_path / 'log.txt'
@@ -42,7 +44,13 @@ def test_validate_lambda():
 def test_call_llm(monkeypatch):
     class FakeClient:
         def __init__(self):
-            self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: types.SimpleNamespace(choices=[types.SimpleNamespace(message=types.SimpleNamespace(content='OK'))])))
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **kw: types.SimpleNamespace(
+                        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content='OK'))]
+                    )
+                )
+            )
     monkeypatch.setattr(cam, 'OpenAI', lambda: FakeClient())
     msg = [{'role': 'user', 'content': 'hi'}]
     out = cam.call_llm(msg, TOKEN_MAXIMUM=5)
@@ -117,9 +125,9 @@ def test_update_recall_edges():
 
 
 def test_qtable_to_graph():
-    cam.qTable = {
-        1: pd.Series({'a': (1, 2), 'b': (1, 0)}, name=1),
+    qtable = {
+        1: pd.Series({'N': (0.0, 2), 'E': (0.0, 0)}),
+        2: pd.Series({'S': (0.0, 1)})
     }
-    graph = cam.qtable_to_graph(cam.qTable)
-    assert graph == {1: {2: 1}}
-
+    graph = cam.qtable_to_graph(qtable)
+    assert graph == {1: {2: 1}, 2: {1: 1}}
