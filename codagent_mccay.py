@@ -442,7 +442,18 @@ class ChattingState(State):
 
         new_text = recentbuffer[self.last_len:]
         self.last_len = len(recentbuffer)
-        lines = [strip_unprintable(l) for l in new_text.splitlines() if "McCay" in l]
+        lines = []
+        for l in new_text.splitlines():
+            s = strip_unprintable(l)
+            if s.startswith("You "):
+                continue
+            if (
+                " says '" in s
+                or " asks '" in s
+                or " tells you" in s
+                or char.name in s
+            ):
+                lines.append(s)
 
         if not lines:
             self.idle_ticks += 1
