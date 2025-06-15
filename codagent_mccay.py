@@ -446,7 +446,7 @@ class ChattingState(State):
 
         if not lines:
             self.idle_ticks += 1
-            if self.idle_ticks > 5:
+            if self.idle_ticks > 500:
                 self.is_done = True
             return response
 
@@ -1589,12 +1589,12 @@ lambda chardata: (
                     print(f"RSS summary failed: {exc}")
                 continue
             elif "McCay, let's chat" in response:
-                say_preamble(tn, "having a conversation")
+                response = send_command(tn, "emote looks up from his notes.")
                 finitestate.change_state(ChattingState())
                 response = send_command(tn, " ")
                 continue
             elif "McCay, talk to you later" in response:
-                _say_lines(tn, "Talk to you later.")
+                response = send_command(tn, "emote goes back to his notes.")
                 finitestate.change_state(NoState())
                 response = send_command(tn, " ")
                 continue
