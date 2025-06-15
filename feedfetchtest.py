@@ -407,7 +407,8 @@ def summarize_articles(
         resp = client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=500,
+            #max_tokens=500,
+            max_completion_tokens=500,
         )
         summary = resp.choices[0].message.content
     except Exception as exc:
