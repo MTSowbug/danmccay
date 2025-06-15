@@ -420,6 +420,73 @@ class FeastingState(State):
         print(f"{char.name} is leaving the Feasting state.")
 
 
+class ChattingState(State):
+    """State for open-ended conversation with the user."""
+
+    def __init__(self):
+        super().__init__()
+        # Conversation lines excluding the system prompt
+        self.history = []
+        self.last_len = 0
+        self.idle_ticks = 0
+
+    def enter(self, char):
+        print(f"{char.name} is entering the Chatting state.")
+        char.set_state_cooldown(ChattingState, 60)
+        self.last_len = len(recentbuffer)
+        self.history = []  # messages exchanged so far
+        _say_lines(char.tn, "Sure, let's chat.")
+
+    def execute(self, char):
+        response = False
+
+        new_text = recentbuffer[self.last_len:]
+        self.last_len = len(recentbuffer)
+        lines = [strip_unprintable(l) for l in new_text.splitlines() if "McCay" in l]
+
+        if not lines:
+            self.idle_ticks += 1
+            if self.idle_ticks > 5:
+                self.is_done = True
+            return response
+
+        if any("McCay, talk to you later" in l for l in lines):
+            _say_lines(char.tn, "Okay, talk later.")
+            self.is_done = True
+            return response
+
+        self.idle_ticks = 0
+        user_msg = " \n".join(lines)
+        self.history.append({"role": "user", "content": user_msg})
+
+        if OPENAI_AVAILABLE:
+            try:
+                client = OpenAI()
+                messages = [{"role": "system", "content": CHAR_PROMPT}] + self.history
+                completion = client.chat.completions.create(
+                    model=SPEAKING_MODEL,
+                    messages=messages,
+                    max_tokens=80,
+                )
+                reply = completion.choices[0].message.content.strip()
+            except Exception as exc:
+                print(f"ChattingState LLM error: {exc}")
+                reply = "I'm having trouble responding right now."
+        else:
+            reply = "..."
+
+        self.history.append({"role": "assistant", "content": reply})
+        _say_lines(char.tn, reply)
+
+        if len(self.history) > 20:
+            self.is_done = True
+
+        return response
+
+    def exit(self, char):
+        print(f"{char.name} is leaving the Chatting state.")
+
+
 
 
 class NPC:
@@ -1520,6 +1587,16 @@ lambda chardata: (
                             send_command(tn, f"say {line}")
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
+                continue
+            elif "McCay, let's chat" in response:
+                say_preamble(tn, "having a conversation")
+                finitestate.change_state(ChattingState())
+                response = send_command(tn, " ")
+                continue
+            elif "McCay, talk to you later" in response:
+                _say_lines(tn, "Talk to you later.")
+                finitestate.change_state(NoState())
+                response = send_command(tn, " ")
                 continue
             elif "McCay, hello" in response:
                 say_preamble(tn, "greetings and smalltalk")
