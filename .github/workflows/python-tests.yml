@@ -24,6 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install openai feedparser PyPDF2 pyyaml pandas pytest
+          pip install openai anthropic feedparser dill strip-ansi \
+            pandas numpy pyyaml PyPDF2 pytest
       - name: Run tests
         run: pytest -q
