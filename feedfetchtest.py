@@ -212,16 +212,53 @@ Respond only with shell commands or a shell script that can be directly pasted i
             cwd=dest_dir,
             capture_output=True,
             text=True,
-            # Run under bash because the generated script often relies on
-            # bash-specific features (e.g. `set -euo pipefail`).
-            executable="/bin/bash",
+            executable="/bin/bash",  # generated script often relies on bash
         )
         output = result.stdout + result.stderr
         if output:
             print(f"Script output:\n{output}")
     except Exception as exc:
         print(f"Script execution failed: {exc}")
+        result = None
         output = ""
+
+    if result and result.returncode != 0:
+        try:
+            print("Script failed, requesting troubleshooting suggestions...")
+            retry_messages = messages + [
+                {
+                    "role": "user",
+                    "content": (
+                        "The previous shell script failed with exit code "
+                        f"{result.returncode} and output:\n{output}\n"
+                        "Please provide a corrected script to accomplish the"
+                        " same task. Respond only with the script."
+                    ),
+                }
+            ]
+            retry = client.chat.completions.create(
+                model=THINKING_MODEL,
+                messages=retry_messages,
+                max_completion_tokens=3000,
+            )
+            retry_script = _extract_shell_script(
+                retry.choices[0].message.content.strip()
+            )
+            print(f"LLM provided retry script:\n{retry_script}")
+            result2 = subprocess.run(
+                retry_script,
+                shell=True,
+                cwd=dest_dir,
+                capture_output=True,
+                text=True,
+                executable="/bin/bash",
+            )
+            output2 = result2.stdout + result2.stderr
+            if output2:
+                print(f"Retry script output:\n{output2}")
+            output += "\n" + output2
+        except Exception as exc:
+            print(f"Retry attempt failed: {exc}")
 
     return output
 
