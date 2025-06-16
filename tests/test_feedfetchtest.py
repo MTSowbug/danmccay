@@ -43,13 +43,13 @@ def test_strip_html():
 
 def test_extract_doi():
     entry = {'dc_identifier': 'doi:10.1234/xyz'}
-    assert fft._extract_doi(entry) == '10.1234/xyz'
+    assert fft._extract_doi(entry) == 'https://doi.org/10.1234/xyz'
 
     entry2 = {'id': 'something doi:10.4321/abc text'}
-    assert fft._extract_doi(entry2) == '10.4321/abc'
+    assert fft._extract_doi(entry2) == 'https://doi.org/10.4321/abc'
 
     entry3 = {'link': 'https://doi.org/10.1111/qwe'}
-    assert fft._extract_doi(entry3) == '10.1111/qwe'
+    assert fft._extract_doi(entry3) == 'https://doi.org/10.1111/qwe'
 
     entry4 = {}
     assert fft._extract_doi(entry4) == ''
@@ -67,7 +67,7 @@ def test_entry_to_article_data(monkeypatch):
             self['id'] = 'id1'
     e = Entry()
     data = fft._entry_to_article_data(e)
-    assert data['doi'] == '10.1234/test'
+    assert data['doi'] == 'https://doi.org/10.1234/test'
     assert data['title'] == 'Title'
     assert data['authors'] == ['A', 'B']
     assert data['journal'] == 'Journal'
@@ -195,6 +195,7 @@ def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
         return p
 
     monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
     monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
     monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
@@ -246,6 +247,7 @@ def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
         return p
 
     monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
     monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
     monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
