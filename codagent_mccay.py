@@ -23,7 +23,7 @@ from strip_ansi import strip_ansi
 from collections import deque
 import datetime as dt
 import logging
-from feedfetchtest import fetch_recent_articles
+from feedfetchtest import fetch_recent_articles, download_missing_pdfs
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 
 # Character prompt loaded from YAML at runtime
@@ -972,6 +972,15 @@ def say_preamble(tn, task_desc):
     _say_lines(tn, text)
 
 
+def fetch_single_article():
+    """Attempt to download a PDF for one article."""
+    try:
+        print("Fetching a single article PDF...")
+        download_missing_pdfs(limit=1)
+    except Exception as exc:
+        print(f"Article fetch failed: {exc}")
+
+
 def qtable_to_graph(dict):
     graph = {}
     for key, series in dict.items():
@@ -1599,6 +1608,10 @@ lambda chardata: (
                             send_command(tn, f"say {line}")
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
+                continue
+            elif "McCay, fetch an article" in response:
+                response = send_command(tn, "emote searches for a scientific article.")
+                fetch_single_article()
                 continue
             elif "McCay, let's chat" in response:
                 response = send_command(tn, "emote looks up from his notes.")

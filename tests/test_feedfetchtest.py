@@ -194,3 +194,31 @@ def test_summarize_articles(monkeypatch, tmp_path):
     summary = fft.summarize_articles(json_path, model='m', char_file=char_path)
     assert summary == 'SUM'
 
+
+def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 'T1', 'link': 'L1'},
+        '2': {'title': 'T2', 'link': 'L2'},
+    }
+    json_path = tmp_path / 'arts.json'
+    json_path.write_text(json.dumps(data))
+
+    calls = []
+
+    def fake_download(entry, dest):
+        calls.append(entry.link)
+        p = tmp_path / f"{entry.link}.pdf"
+        p.write_bytes(b'x')
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft.time, 'sleep', lambda x: None)
+
+    fft.download_missing_pdfs(json_path=json_path, limit=1)
+
+    saved = json.loads(json_path.read_text())
+    assert list(saved.keys()) == ['1', '2']
+    assert 'pdf' in saved['1']
+    assert 'pdf' not in saved['2']
+    assert calls == ['L1']
+

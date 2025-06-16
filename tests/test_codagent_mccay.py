@@ -165,3 +165,10 @@ def test_say_preamble(monkeypatch):
     monkeypatch.setattr(cam, '_say_lines', lambda tn, text: calls.append(text))
     cam.say_preamble(None, 'task')
     assert calls == ['x']
+
+
+def test_fetch_single_article(monkeypatch):
+    called = []
+    monkeypatch.setattr(cam, 'download_missing_pdfs', lambda limit=1: called.append(limit))
+    cam.fetch_single_article()
+    assert called == [1]
