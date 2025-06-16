@@ -168,6 +168,40 @@ def test_fetch_recent_articles(monkeypatch, tmp_path):
     assert 'ID' in articles
     assert articles['ID']['title'] == 'T'
 
+def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
+    opml = '<opml><body><outline type="rss" xmlUrl="http://feed"/></body></opml>'
+
+    class Parsed:
+        def __init__(self, entries):
+            self.entries = entries
+
+    class E(dict):
+        def __init__(self):
+            super().__init__()
+            self.published_parsed = time.gmtime(time.time())
+            self['title'] = 'T'
+            self['link'] = 'L'
+            self['id'] = 'ID'
+            self['summary'] = ''
+            self.link = 'L'
+            self.title = 'T'
+
+    parsed = Parsed([E()])
+    monkeypatch.setattr(fft._fp, 'parse', lambda url: parsed)
+
+    def fake_download(entry, dest):
+        p = dest / 'p.pdf'
+        p.write_bytes(b'd')
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=True)
+    assert articles['ID']['pdf'] == 'p.pdf'
+
 def test_summarize_articles(monkeypatch, tmp_path):
     data = {
         '1': {'title': 'T1', 'abstract': 'A1'},
@@ -220,4 +254,5 @@ def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
 
     stored = json.loads(json_path.read_text())
     assert sum('pdf' in v for v in stored.values()) == 1
+    assert stored['1']['pdf'] == 't1.pdf'
 

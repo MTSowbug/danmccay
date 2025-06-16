@@ -288,7 +288,8 @@ def fetch_recent_articles(
             if download_pdfs:
                 pdf_path = _download_pdf(entry, _PDF_DIR)
                 if pdf_path:
-                    articles[key]["pdf"] = str(pdf_path)
+                    rel = pdf_path.relative_to(_PDF_DIR)
+                    articles[key]["pdf"] = str(rel)
                 time.sleep(random.uniform(5, 10))
             print(entry.title)
 
@@ -340,7 +341,8 @@ def download_missing_pdfs(
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
-            data["pdf"] = str(pdf_path)
+            rel = pdf_path.relative_to(_PDF_DIR)
+            data["pdf"] = str(rel)
             updated = True
         processed += 1
         time.sleep(random.uniform(5, 10))
