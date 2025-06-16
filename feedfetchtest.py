@@ -89,7 +89,7 @@ def _strip_html(text: str) -> str:
 
 
 def _extract_doi(entry) -> str:
-    """Return a DOI string from *entry* if present."""
+    """Return a DOI URL from *entry* if present."""
     doi = entry.get("dc_identifier") or entry.get("doi") or ""
     if isinstance(doi, str) and doi.lower().startswith("doi:"):
         doi = doi.split("doi:", 1)[1].strip()
@@ -101,6 +101,8 @@ def _extract_doi(entry) -> str:
                 if m:
                     doi = m.group(0)
                     break
+    if doi and not doi.startswith("http"):
+        doi = f"https://doi.org/{doi}"
     return doi
 
 
@@ -226,6 +228,65 @@ def _pdf_file_valid(path: Path) -> bool:
     return True
 
 
+def _extract_doi_from_pdf(path: Path) -> str:
+    """Return a DOI URL if one can be parsed from *path*."""
+    try:
+        from PyPDF2 import PdfReader
+
+        reader = PdfReader(str(path))
+        text = ""
+        for page in reader.pages[:2]:
+            try:
+                text += page.extract_text() or ""
+            except Exception:
+                continue
+        m = re.search(r"https?://doi.org/\S+", text)
+        if m:
+            return m.group(0)
+    except Exception as exc:
+        print(f"DOI extraction from PDF failed: {exc}")
+    return ""
+
+
+def _extract_doi_from_url(url: str) -> str:
+    """Return a DOI URL discovered on *url* or via redirects."""
+    if not url:
+        return ""
+    try:
+        with urllib.request.urlopen(url) as resp:
+            final = resp.geturl()
+            data = resp.read().decode("utf-8", errors="ignore")
+    except Exception as exc:
+        print(f"Failed to fetch {url}: {exc}")
+        return ""
+    if final.startswith("https://doi.org/"):
+        return final
+
+    m = re.search(r"https://doi.org/10\.[^'\"\s<>]+", data)
+    if m:
+        return m.group(0)
+
+    m = re.search(
+        r"citation_doi[^>]+content=[\'\"](10\.[^\'\"]+)[\'\"]", data, re.I
+    )
+    if m:
+        return f"https://doi.org/{m.group(1)}"
+
+    m = re.search(r"doi:?\s*(10\.[^\'\"\s<>]+)", data, re.I)
+    if m:
+        return f"https://doi.org/{m.group(1)}"
+
+    return ""
+
+
+def _discover_doi(entry, pdf_path: Path | None = None) -> str:
+    """Attempt to retrieve the DOI URL for *entry* or *pdf_path*."""
+    doi = _extract_doi_from_url(getattr(entry, "link", ""))
+    if not doi and pdf_path is not None:
+        doi = _extract_doi_from_pdf(pdf_path)
+    return doi
+
+
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
     """Try to download a PDF for *entry* into *dest_dir* using an LLM script."""
     dest_dir.mkdir(exist_ok=True)
@@ -290,6 +351,9 @@ def fetch_recent_articles(
                 if pdf_path:
                     rel = pdf_path.relative_to(_PDF_DIR)
                     articles[key]["pdf"] = str(rel)
+                    doi = _discover_doi(entry, pdf_path)
+                    if doi:
+                        articles[key]["doi"] = doi
                 time.sleep(random.uniform(5, 10))
             print(entry.title)
 
@@ -336,13 +400,16 @@ def download_missing_pdfs(
         if not link:
             doi = data.get("doi")
             if doi:
-                link = f"https://doi.org/{doi}"
+                link = doi
         entry.link = link
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
             rel = pdf_path.relative_to(_PDF_DIR)
             data["pdf"] = str(rel)
+            doi = _discover_doi(entry, pdf_path)
+            if doi:
+                data["doi"] = doi
             updated = True
         processed += 1
         time.sleep(random.uniform(5, 10))
