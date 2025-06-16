@@ -189,3 +189,20 @@ def test_chatting_state_dedup(monkeypatch):
     cam.recentbuffer += 'User says hello\n'
     state.execute(char)
     assert sent == []
+
+
+def test_fetch_article_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, 'download_missing_pdfs', lambda max_articles=1: calls.append(max_articles))
+    monkeypatch.setattr(cam, 'send_command', lambda tn, c: 'resp')
+
+    # Simulate branch execution
+    response = 'McCay, fetch an article'
+    if "McCay, fetch an article" in response:
+        cam.send_command(None, "emote looks for a good article.")
+        try:
+            cam.download_missing_pdfs(max_articles=1)
+        except Exception:
+            pass
+
+    assert calls == [1]

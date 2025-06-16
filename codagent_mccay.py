@@ -23,7 +23,7 @@ from strip_ansi import strip_ansi
 from collections import deque
 import datetime as dt
 import logging
-from feedfetchtest import fetch_recent_articles
+from feedfetchtest import fetch_recent_articles, download_missing_pdfs
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 
 # Character prompt loaded from YAML at runtime
@@ -1607,6 +1607,14 @@ lambda chardata: (
                             send_command(tn, f"say {line}")
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
+                continue
+            elif "McCay, fetch an article" in response:
+                response = send_command(tn, "emote looks for a good article.")
+                try:
+                    print("Fetching one article PDF...")
+                    download_missing_pdfs(max_articles=1)
+                except Exception as exc:
+                    print(f"PDF fetch failed: {exc}")
                 continue
             elif "McCay, let's chat" in response:
                 response = send_command(tn, "emote looks up from his notes.")
