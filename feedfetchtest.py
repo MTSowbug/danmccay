@@ -149,6 +149,12 @@ def _extract_shell_script(text: str) -> str:
 def _llm_shell_commands(entry, dest_dir: Path) -> str:
     """Ask the LLM for a shell script to download *entry* and execute it."""
     client = openai.OpenAI()
+    sample_path = _BASE_DIR / "sample_pdf_fetch.sh"
+    try:
+        sample_script = sample_path.read_text(encoding="utf-8")
+    except Exception:
+        sample_script = ""
+
     messages = [
         {
             "role": "system",
@@ -156,11 +162,25 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                 "You provide Linux shell commands for obtaining peer-reviewed scientific articles as PDFs."
             ),
         },
+    ]
+
+    if sample_script:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Here is an example of a successful script you may use as a style reference:\n" +
+                    "```bash\n" + sample_script + "\n```"
+                ),
+            }
+        )
+
+    messages.append(
         {
             "role": "user",
             "content": (
                 """
-Provide Linux shell commands to find and download the full text of the scientific article described at this URL: """ + entry.link + """. 
+Provide Linux shell commands to find and download the full text of the scientific article described at this URL: """ + entry.link + """.
 This link is just a starting point - you will have to determine the URL of the article itself via web browsing. You may not have the correct institutional credentials - you will have to determine whether or not this is true. Provide commands to download the best version of the article available.
 Search the web to find details you need about how the relevant website is structured in order to find the PDF.
 Name the downloaded pdf "article_fulltest_version1.pdf". If you attempt to download multiple versions of the pdf, name them "article_fulltest_version2.pdf", "article_fulltest_version3.pdf", and so on. The best version of the article should be version1, 2nd-best version should be version2, and so on.
@@ -169,8 +189,8 @@ Include extensive debugging information by the use of echos, such that, if your 
 Respond only with shell commands or a shell script that can be directly pasted into a terminal. Type nothing else.
                 """
             ),
-        },
-    ]
+        }
+    )
 
     try:
         resp = client.chat.completions.create(
