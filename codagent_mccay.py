@@ -432,6 +432,8 @@ class ChattingState(State):
         # Track recently processed lines so we don't react to the same
         # message repeatedly if the MUD echoes it back.
         self.recent_lines = deque(maxlen=50)
+        # Buffer for a line that hasn't been completed with a newline yet.
+        self.partial_line = ""
 
     def enter(self, char):
         print(f"{char.name} is entering the Chatting state.")
@@ -446,8 +448,17 @@ class ChattingState(State):
 
         new_text = recentbuffer[self.last_len:]
         self.last_len = len(recentbuffer)
+
+        # Combine with any previously incomplete line and normalize line endings
+        new_text = self.partial_line + new_text.replace('\r', '')
+        parts = new_text.split('\n')
+        if new_text and not new_text.endswith('\n'):
+            self.partial_line = parts.pop()
+        else:
+            self.partial_line = ""
+
         lines = []
-        for l in new_text.splitlines():
+        for l in parts:
             s = strip_unprintable(l)
             if not s:
                 continue
