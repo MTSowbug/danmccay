@@ -355,7 +355,7 @@ class QuenchingState(State):
                 break
 
         statecheck = re.search(r'.*37&7HP:(\d+)\% MP:(\d+) MV:(\d+) Money:(\d+).*Lv:(\d+) TNL:(\d+) 37&6', response)
-        if "THIRST" not in statecheck.group(0):
+        if statecheck and "THIRST" not in statecheck.group(0):
             print("Thirst quenched!")
             char.thirst = False
 
@@ -403,7 +403,7 @@ class FeastingState(State):
                 break
 
             statecheck = re.search(r'.*37&7HP:(\d+)\% MP:(\d+) MV:(\d+) Money:(\d+).*Lv:(\d+) TNL:(\d+) 37&6', response)
-            if "HUNGER" not in statecheck.group(0):
+            if statecheck and "HUNGER" not in statecheck.group(0):
                 print("Hunger satisfied!")
                 char.hunger = False
                 break
