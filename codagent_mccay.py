@@ -1619,8 +1619,8 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
                 continue
-            elif "McCay, fetch an article" in response:
-                response = send_command(tn, "emote looks for a good article.")
+            elif "McCay, fetch a PDF" in response:
+                response = send_command(tn, "emote is trying to retrieve a PDF.")
                 try:
                     print("Fetching one article PDF...")
                     download_missing_pdfs(max_articles=1)
