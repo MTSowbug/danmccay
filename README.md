@@ -20,15 +20,16 @@ This repository contains experimental tools for interacting with the *Cleft of D
 
    Alternatively, you can create it manually:
    ```bash
-   conda create -n mccay python=3.12 pandas numpy pyyaml jq
+   conda create -n mccay python=3.12 pandas numpy pyyaml jq pandoc
    conda activate mccay
    pip install openai anthropic feedparser dill strip-ansi
    ```
 
    The environment includes the `jq` utility so shell commands in
-   `feedfetchtest.py` can easily process JSON data. If you prefer not to
-   install it via conda, you can also use your system package manager,
-   e.g. `sudo apt-get install jq` on Ubuntu.
+   `feedfetchtest.py` can easily process JSON data. It also installs
+   `pandoc` so article summaries can be converted to PDFs. If you prefer
+   not to install these via conda, you can use your system package
+   manager, e.g. `sudo apt-get install jq pandoc` on Ubuntu.
 
 4. **Set API keys** for services you intend to use:
    ```bash
