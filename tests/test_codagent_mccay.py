@@ -172,3 +172,27 @@ def test_fetch_single_article(monkeypatch):
     monkeypatch.setattr(cam, 'download_missing_pdfs', lambda limit=1: called.append(limit))
     cam.fetch_single_article()
     assert called == [1]
+
+
+def test_chatting_state_dedup(monkeypatch):
+    """Ensure repeated input lines don't trigger multiple replies."""
+    monkeypatch.setattr(cam, 'OPENAI_AVAILABLE', False)
+    sent = []
+    monkeypatch.setattr(cam, 'send_command', lambda tn, c: sent.append(c))
+
+    state = cam.ChattingState()
+    char = types.SimpleNamespace(tn='tn', name='McCay', set_state_cooldown=lambda *a, **k: None)
+
+    cam.recentbuffer = ''
+    state.enter(char)
+    sent.clear()  # ignore greeting
+
+    cam.recentbuffer += 'User says hello\n'
+    state.execute(char)
+    assert sent == ['say ...']
+    sent.clear()
+
+    # Same line again should not trigger another reply
+    cam.recentbuffer += 'User says hello\n'
+    state.execute(char)
+    assert sent == []

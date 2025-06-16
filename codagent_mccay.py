@@ -429,6 +429,7 @@ class ChattingState(State):
         self.history = []
         self.last_len = 0
         self.idle_ticks = 0
+        self.last_user_msg = ""
 
     def enter(self, char):
         print(f"{char.name} is entering the Chatting state.")
@@ -469,6 +470,9 @@ class ChattingState(State):
 
         self.idle_ticks = 0
         user_msg = " \n".join(lines)
+        if user_msg == self.last_user_msg:
+            return response
+        self.last_user_msg = user_msg
         self.history.append({"role": "user", "content": user_msg})
 
         if OPENAI_AVAILABLE:
