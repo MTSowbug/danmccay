@@ -420,7 +420,7 @@ def download_missing_pdfs(
 
 def summarize_articles(
     json_path: Path = _ARTICLES_JSON,
-    model: str = THINKING_MODEL,
+    model: str = SPEAKING_MODEL,
     char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
 ) -> str:
     """Return an LLM-generated summary of all articles in *json_path*.
