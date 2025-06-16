@@ -445,15 +445,16 @@ class ChattingState(State):
         lines = []
         for l in new_text.splitlines():
             s = strip_unprintable(l)
+            if not s:
+                continue
             if s.startswith("You "):
                 continue
-            if (
-                " says '" in s
-                or " asks '" in s
-                or " tells you" in s
-                or char.name in s
-            ):
-                lines.append(s)
+            if "<<<" in s and ">>>" in s:
+                # ignore the MUD prompt lines
+                continue
+            if "HP:" in s and "MP:" in s and "MV:" in s:
+                continue
+            lines.append(s)
 
         if not lines:
             self.idle_ticks += 1
