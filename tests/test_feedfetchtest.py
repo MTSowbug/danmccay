@@ -194,3 +194,30 @@ def test_summarize_articles(monkeypatch, tmp_path):
     summary = fft.summarize_articles(json_path, model='m', char_file=char_path)
     assert summary == 'SUM'
 
+
+def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 't1', 'link': 'L1'},
+        '2': {'title': 't2', 'link': 'L2'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    created = []
+
+    def fake_download(entry, dest):
+        p = dest / f"{entry.title}.pdf"
+        p.write_bytes(b'd')
+        created.append(p)
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_missing_pdfs(json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert sum('pdf' in v for v in stored.values()) == 1
+

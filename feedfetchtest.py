@@ -300,8 +300,17 @@ def fetch_recent_articles(
 
 def download_missing_pdfs(
     json_path: Path = _ARTICLES_JSON,
+    max_articles: int | None = None,
 ) -> None:
-    """Download PDFs for entries in *json_path* that lack them."""
+    """Download PDFs for entries in *json_path* that lack them.
+
+    Parameters
+    ----------
+    json_path : Path
+        Location of the ``articles.json`` file.
+    max_articles : int or None, optional
+        If given, limit the number of PDFs fetched to at most this many.
+    """
     if not json_path.is_file():
         print(f"JSON file not found: {json_path}")
         return
@@ -310,9 +319,12 @@ def download_missing_pdfs(
         articles = json.load(fh)
 
     updated = False
+    processed = 0
     for data in articles.values():
         if data.get("pdf"):
             continue
+        if max_articles is not None and processed >= max_articles:
+            break
 
         class Entry:
             pass
@@ -330,6 +342,7 @@ def download_missing_pdfs(
         if pdf_path:
             data["pdf"] = str(pdf_path)
             updated = True
+        processed += 1
         time.sleep(random.uniform(5, 10))
 
     if updated:
