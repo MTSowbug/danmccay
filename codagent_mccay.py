@@ -429,12 +429,16 @@ class ChattingState(State):
         self.history = []
         self.last_len = 0
         self.idle_ticks = 0
+        # Track recently processed lines so we don't react to the same
+        # message repeatedly if the MUD echoes it back.
+        self.recent_lines = deque(maxlen=50)
 
     def enter(self, char):
         print(f"{char.name} is entering the Chatting state.")
         char.set_state_cooldown(ChattingState, 60)
         self.last_len = len(recentbuffer)
         self.history = []  # messages exchanged so far
+        self.recent_lines.clear()
         _say_lines(char.tn, "Sure, let's chat.")
 
     def execute(self, char):
@@ -454,6 +458,10 @@ class ChattingState(State):
                 continue
             if "HP:" in s and "MP:" in s and "MV:" in s:
                 continue
+            if s in self.recent_lines:
+                # Skip lines we've recently processed
+                continue
+            self.recent_lines.append(s)
             lines.append(s)
 
         if not lines:
