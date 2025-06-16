@@ -191,6 +191,30 @@ def test_chatting_state_dedup(monkeypatch):
     assert sent == []
 
 
+def test_chatting_state_waits_for_newline(monkeypatch):
+    """ChattingState should not respond until a full line is received."""
+    monkeypatch.setattr(cam, 'OPENAI_AVAILABLE', False)
+    sent = []
+    monkeypatch.setattr(cam, 'send_command', lambda tn, c: sent.append(c))
+
+    state = cam.ChattingState()
+    char = types.SimpleNamespace(tn='tn', name='McCay', set_state_cooldown=lambda *a, **k: None)
+
+    cam.recentbuffer = ''
+    state.enter(char)
+    sent.clear()
+
+    # Add text without newline first
+    cam.recentbuffer += 'Partial message'
+    state.execute(char)
+    assert sent == []
+
+    # Complete the line
+    cam.recentbuffer += ' continued\n'
+    state.execute(char)
+    assert sent == ['say ...']
+
+
 def test_fetch_article_command(monkeypatch):
     calls = []
     monkeypatch.setattr(cam, 'download_missing_pdfs', lambda max_articles=1: calls.append(max_articles))
