@@ -212,6 +212,9 @@ Respond only with shell commands or a shell script that can be directly pasted i
             cwd=dest_dir,
             capture_output=True,
             text=True,
+            # Run under bash because the generated script often relies on
+            # bash-specific features (e.g. `set -euo pipefail`).
+            executable="/bin/bash",
         )
         output = result.stdout + result.stderr
         if output:
