@@ -72,7 +72,7 @@ can stop the agent later with `kill $(cat mccay.pid)`.
 ## Files
 
 - `codagent_mccay.py` – telnet-based MUD agent that relies on OpenAI/Anthropic models.
-- `feedfetchtest.py` – fetch RSS articles or PDFs depending on the command-line argument.
+- `feedfetchtest.py` – fetch RSS articles or PDFs depending on the command-line argument. Includes special parsing for the Longevity Papers RSS feed.
 - `mccayfeeds.opml` – OPML list of RSS feeds used by the fetcher.
 - `danmccay.yaml` – sample configuration for the MUD agent.
 

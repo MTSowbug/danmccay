@@ -80,6 +80,31 @@ def test_entry_to_article_data(monkeypatch):
     assert data['lt-relevance'] == 0
 
 
+def test_entry_to_article_data_longevity():
+    html = (
+        "<h3>Paper Details</h3>"
+        "<p><strong>Authors:</strong> Alice, Bob</p>"
+        "<p><strong>Journal:</strong> Longevity Journal</p>"
+        "<h3>Abstract</h3>"
+        "<p>Example abstract.</p>"
+    )
+
+    class Entry(dict):
+        def __init__(self):
+            super().__init__()
+            self.published_parsed = time.gmtime(0)
+            self['title'] = 'T'
+            self['summary'] = html
+            self['link'] = 'L'
+            self['id'] = 'ID'
+
+    e = Entry()
+    data = fft._entry_to_article_data(e)
+    assert data['authors'] == ['Alice', 'Bob']
+    assert data['journal'] == 'Longevity Journal'
+    assert data['abstract'] == 'Example abstract.'
+
+
 def test_sanitize_filename():
     fname = fft._sanitize_filename('a/b?c*<>|')
     assert fname == 'a_b_c_'
