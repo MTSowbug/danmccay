@@ -204,6 +204,69 @@ def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
     articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=True)
     assert articles['ID']['pdf'] == 'p.pdf'
 
+
+def test_fightaging_special_case(monkeypatch):
+    opml = '<opml><body><outline type="rss" xmlUrl="http://feed"/></body></opml>'
+
+    html = '<a href="https://doi.org/10.1234/x">Read more</a>'
+
+    class Parsed:
+        def __init__(self, entries):
+            self.entries = entries
+
+    class E(dict):
+        def __init__(self):
+            super().__init__()
+            self.published_parsed = time.gmtime(time.time())
+            self['title'] = 'T'
+            self['link'] = 'https://www.fightaging.org/archives/a-post/'
+            self['id'] = 'ID'
+            self['summary'] = ''
+            self.link = self['link']
+            self.title = 'T'
+
+    parsed = Parsed([E()])
+    monkeypatch.setattr(fft._fp, 'parse', lambda url: parsed)
+
+    class Resp:
+        def __init__(self, text):
+            self.text = text.encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            pass
+        def read(self):
+            return self.text
+        def geturl(self):
+            return 'https://www.fightaging.org/archives/a-post/'
+
+    monkeypatch.setattr(fft.urllib.request, 'urlopen', lambda url: Resp(html))
+
+    called = []
+    def fake_doi(url):
+        called.append(url)
+        return url
+    monkeypatch.setattr(fft, '_extract_doi_from_url', fake_doi)
+    monkeypatch.setattr(fft, '_extract_journal_from_url', lambda url: 'J')
+
+    class FakeRespLLM:
+        class choice:
+            def __init__(self):
+                self.message = types.SimpleNamespace(content='https://doi.org/10.1234/x')
+        choices = [choice()]
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **k: FakeRespLLM()))
+
+    monkeypatch.setattr(fft, 'openai', types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=False)
+    assert articles['ID']['doi'] == 'https://doi.org/10.1234/x'
+    assert articles['ID']['link'] == 'https://doi.org/10.1234/x'
+    assert articles['ID']['journal'] == 'J'
+    assert called == []
+
 def test_summarize_articles(monkeypatch, tmp_path):
     data = {
         '1': {'title': 'T1', 'abstract': 'A1'},

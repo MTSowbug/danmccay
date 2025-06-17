@@ -344,6 +344,79 @@ def _extract_doi_from_url(url: str) -> str:
     return ""
 
 
+def _extract_journal_from_url(url: str) -> str:
+    """Return a journal title discovered on *url*."""
+    if not url:
+        return ""
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = resp.read().decode("utf-8", errors="ignore")
+    except Exception as exc:
+        print(f"Failed to fetch {url}: {exc}")
+        return ""
+
+    m = re.search(r"citation_journal_title[^>]+content=['\"]([^'\"]+)['\"]", data, re.I)
+    if m:
+        return m.group(1)
+
+    m = re.search(r"property=['\"]og:site_name['\"] content=['\"]([^'\"]+)['\"]", data, re.I)
+    if m:
+        return m.group(1)
+
+    return ""
+
+
+def _llm_extract_doi(html: str) -> str:
+    """Use an LLM to guess the DOI URL in *html*."""
+    snippet = html[:8000]
+    client = openai.OpenAI()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Extract the doi.org URL for the scientific article referenced in"
+                " this Fight Aging! blog post. Respond only with that URL."
+            ),
+        },
+        {"role": "user", "content": snippet},
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=30,
+        )
+        text = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM DOI extraction failed: {exc}")
+        return ""
+
+    m = re.search(r"https?://doi.org/[^\s]+", text)
+    return m.group(0).strip() if m else ""
+
+
+def _resolve_fightaging_item(url: str) -> tuple[str, str, str]:
+    """Return the actual article link, DOI, and journal from a Fight Aging! post."""
+    try:
+        with urllib.request.urlopen(url) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as exc:
+        print(f"Failed to fetch {url}: {exc}")
+        return url, "", ""
+
+    doi = _llm_extract_doi(html)
+    if doi:
+        target = doi
+    else:
+        m = re.search(r"href=\"(https?://(?!www\.fightaging\.org)[^\"]+)\"", html)
+        target = m.group(1) if m else url
+        doi = _extract_doi_from_url(target)
+
+    journal = _extract_journal_from_url(target)
+    return target, doi, journal
+
+
 def _discover_doi(entry, pdf_path: Path | None = None) -> str:
     """Attempt to retrieve the DOI URL for *entry* or *pdf_path*."""
     doi = _extract_doi_from_url(getattr(entry, "link", ""))
@@ -409,6 +482,16 @@ def fetch_recent_articles(
 
             # Compose a unique, deterministic key
             key = f"{entry.get('id', entry.link)}"
+            link = entry.get("link", "")
+            if "fightaging.org" in urllib.parse.urlparse(link).netloc:
+                new_link, doi, journal = _resolve_fightaging_item(link)
+                entry["link"] = new_link
+                entry.link = new_link
+                if doi:
+                    entry["doi"] = doi
+                if journal:
+                    entry["dc_source"] = journal
+
             article = _entry_to_article_data(entry)
             articles[key] = article
             if download_pdfs:
