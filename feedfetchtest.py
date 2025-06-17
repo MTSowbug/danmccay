@@ -116,12 +116,18 @@ def _parse_longevity_summary(summary: str) -> tuple[list[str], str, str]:
 
 def _extract_doi(entry) -> str:
     """Return a DOI URL from *entry* if present."""
-    doi = entry.get("dc_identifier") or entry.get("doi") or ""
+
+    def _get(name):
+        if isinstance(entry, dict):
+            return entry.get(name)
+        return getattr(entry, name, None)
+
+    doi = _get("dc_identifier") or _get("doi") or ""
     if isinstance(doi, str) and doi.lower().startswith("doi:"):
         doi = doi.split("doi:", 1)[1].strip()
     if not doi:
         # Look for a DOI pattern in id or link fields
-        for field in (entry.get("id"), entry.get("link")):
+        for field in (_get("id"), _get("link")):
             if field:
                 m = re.search(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", str(field), re.I)
                 if m:

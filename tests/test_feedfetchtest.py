@@ -55,6 +55,12 @@ def test_extract_doi():
     entry4 = {}
     assert fft._extract_doi(entry4) == ''
 
+def test_extract_doi_object():
+    class E:
+        link = 'https://doi.org/10.9999/test'
+
+    assert fft._extract_doi(E()) == 'https://doi.org/10.9999/test'
+
 def test_entry_to_article_data(monkeypatch):
     class Entry(dict):
         def __init__(self):
