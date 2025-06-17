@@ -527,6 +527,8 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
 
         print(f"Aging Cell routine.")
         doi = _extract_doi(entry)
+        if not doi:
+            doi = _extract_doi_from_url(getattr(entry, "link", ""))
         print(f"Doi appears to be: {doi}")
         if doi:
             suffix = doi.split("/")[-1].replace(".", "_")
@@ -719,7 +721,7 @@ def download_journal_pdfs(
         print(f"Journal: {entry.journal}")
         print(f"Title: {entry.title}")
         print(f"Link: {entry.link}")
-        print(f"DOI: {entry.doi}")
+        print(f"DOI: {getattr(entry, 'doi', '')}")
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
