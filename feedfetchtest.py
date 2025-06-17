@@ -88,6 +88,32 @@ def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text or "")
 
 
+def _parse_longevity_summary(summary: str) -> tuple[list[str], str, str]:
+    """Extract authors, journal and abstract from a Longevity Papers summary."""
+    authors: list[str] = []
+    journal = ""
+    abstract = ""
+    if not summary:
+        return authors, journal, abstract
+
+    m = re.search(r"<strong>Authors:</strong>(.*?)</p>", summary, re.S)
+    if m:
+        names = _strip_html(m.group(1)).split(",")
+        authors = [n.strip() for n in names if n.strip()]
+
+    m = re.search(r"<strong>Journal:</strong>(.*?)</p>", summary, re.S)
+    if m:
+        journal = _strip_html(m.group(1)).strip()
+
+    m = re.search(r"<h3>Abstract</h3>\s*<p>(.*?)</p>", summary, re.S)
+    if m:
+        abstract = _strip_html(m.group(1)).strip()
+    else:
+        abstract = _strip_html(summary)
+
+    return authors, journal, abstract
+
+
 def _extract_doi(entry) -> str:
     """Return a DOI URL from *entry* if present."""
     doi = entry.get("dc_identifier") or entry.get("doi") or ""
@@ -115,13 +141,22 @@ def _entry_to_article_data(entry) -> dict:
     elif hasattr(entry, "author"):
         authors = [entry.author]
 
-    abstract = _strip_html(entry.get("summary") or entry.get("description") or "")
+    summary_html = entry.get("summary") or entry.get("description") or ""
+    abstract = _strip_html(summary_html)
+    journal = entry.get("dc_source") or entry.get("source") or ""
+
+    if (not authors or not journal) and "<strong>Authors:" in summary_html:
+        a2, j2, abstract = _parse_longevity_summary(summary_html)
+        if not authors:
+            authors = a2
+        if not journal:
+            journal = j2
 
     return {
         "doi": _extract_doi(entry),
         "title": entry.get("title", ""),
         "authors": authors,
-        "journal": entry.get("dc_source") or entry.get("source") or "",
+        "journal": journal,
         "link": entry.get("link", ""),
         "year": ts.year if ts else None,
         "abstract": abstract,
