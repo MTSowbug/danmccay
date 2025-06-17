@@ -1627,6 +1627,15 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"PDF fetch failed: {exc}")
                 continue
+            elif "McCay, fetch Aging Cell" in response:
+                response = send_command(tn, "emote searches for an Aging Cell PDF.")
+                try:
+                    print("Fetching an Aging Cell article PDF...")
+                    from feedfetchtest import download_journal_pdfs
+                    download_journal_pdfs("Aging Cell", max_articles=1)
+                except Exception as exc:
+                    print(f"Aging Cell fetch failed: {exc}")
+                continue
             elif "McCay, let's chat" in response:
                 response = send_command(tn, "emote looks up from his notes.")
                 finitestate.change_state(ChattingState())

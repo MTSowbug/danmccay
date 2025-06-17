@@ -662,6 +662,61 @@ def download_missing_pdfs(
         processed += 1
         time.sleep(random.uniform(5, 10))
 
+        if updated:
+            _save_articles(articles, json_path)
+
+
+def download_journal_pdfs(
+    journal: str,
+    json_path: Path = _ARTICLES_JSON,
+    max_articles: int | None = 1,
+) -> None:
+    """Download PDFs for articles in *json_path* matching *journal*.
+
+    The ``journal`` comparison is case-insensitive. If *max_articles* is
+    provided, stop after that many PDFs have been downloaded.
+    """
+    if not json_path.is_file():
+        print(f"JSON file not found: {json_path}")
+        return
+
+    with json_path.open("r", encoding="utf-8") as fh:
+        articles = json.load(fh)
+
+    target = journal.strip().lower()
+    updated = False
+    processed = 0
+    for key, data in articles.items():
+        j = data.get("journal", "").strip().lower()
+        if j != target or data.get("pdf"):
+            continue
+        if max_articles is not None and processed >= max_articles:
+            break
+
+        class Entry:
+            pass
+
+        entry = Entry()
+        entry.title = data.get("title", "")
+        link = data.get("link") or key
+        if not link:
+            doi = data.get("doi")
+            if doi:
+                link = doi
+        entry.link = link
+        entry.journal = data.get("journal", "")
+
+        pdf_path = _download_pdf(entry, _PDF_DIR)
+        if pdf_path:
+            rel = pdf_path.relative_to(_PDF_DIR)
+            data["pdf"] = str(rel)
+            doi = _discover_doi(entry, pdf_path)
+            if doi:
+                data["doi"] = doi
+            updated = True
+        processed += 1
+        time.sleep(random.uniform(5, 10))
+
     if updated:
         _save_articles(articles, json_path)
 
