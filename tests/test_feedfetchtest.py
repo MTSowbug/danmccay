@@ -192,6 +192,32 @@ def test_download_pdf_aging_cell(monkeypatch, tmp_path):
     assert calls[0][-1].endswith('acel_70123')
     assert result == tmp_path / 'article_fulltest_version1.pdf'
 
+
+def test_download_pdf_aging_cell_case_insensitive(monkeypatch, tmp_path):
+    """Ensure journal comparison ignores capitalization."""
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(fft, '_extract_doi', lambda e: 'https://doi.org/10.1111/acel.70123')
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'AGING CELL'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('acel_70123')
+    assert result == tmp_path / 'article_fulltest_version1.pdf'
+
 def test_save_articles(tmp_path):
     path = tmp_path / 'a.json'
     fft._save_articles({'k': {'v': 1}}, path)
