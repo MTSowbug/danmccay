@@ -122,6 +122,7 @@ def _entry_to_article_data(entry) -> dict:
         "title": entry.get("title", ""),
         "authors": authors,
         "journal": entry.get("dc_source") or entry.get("source") or "",
+        "link": entry.get("link", ""),
         "year": ts.year if ts else None,
         "abstract": abstract,
         "date-added": _dt.datetime.now(_dt.timezone.utc).isoformat(),
@@ -448,7 +449,7 @@ def download_missing_pdfs(
 
     updated = False
     processed = 0
-    for data in articles.values():
+    for key, data in articles.items():
         if data.get("pdf"):
             continue
         if max_articles is not None and processed >= max_articles:
@@ -459,7 +460,7 @@ def download_missing_pdfs(
 
         entry = Entry()
         entry.title = data.get("title", "")
-        link = data.get("link", "")
+        link = data.get("link") or key
         if not link:
             doi = data.get("doi")
             if doi:
