@@ -712,9 +712,9 @@ def download_journal_pdfs(
         entry.link = link
         entry.journal = data.get("journal", "")
 
-        print(f"JSON file not found: {entry.journal}")
-        print(f"JSON file not found: {entry.title}")
-        print(f"JSON file not found: {entry.link}")
+        print(f"Journal: {entry.journal}")
+        print(f"Title: {entry.title}")
+        print(f"Link: {entry.link}")
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
