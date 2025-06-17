@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ===============================================================
-# Fetch the full-text PDF for PubMed ID 40524498 (Aging Cell)
+# Fetch the full-text PDF for an Aging Cell article
 # ===============================================================
 # Requirements:
 #   * curl, grep, sed, awk, file, ls
@@ -10,8 +10,16 @@
 
 set -euo pipefail
 
-PMID="40524498"
-DOI="10.1111/acel.70123"
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 acel_70123" >&2
+  exit 1
+fi
+
+# Argument should look like "acel_70123" (underscore instead of dot)
+SUFFIX="${1//./_}"
+
+PMID=""
+DOI="10.1111/${SUFFIX//_/.}"
 BASE_NAME="article_fulltest_version"
 COOKIE_JAR="jar.cookies"
 

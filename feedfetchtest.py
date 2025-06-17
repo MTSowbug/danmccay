@@ -502,11 +502,35 @@ def _discover_doi(entry, pdf_path: Path | None = None) -> str:
 
 
 def _download_pdf(entry, dest_dir: Path) -> Path | None:
-    """Try to download a PDF for *entry* into *dest_dir* using an LLM script."""
+    """Try to download a PDF for *entry* into *dest_dir*."""
     dest_dir.mkdir(exist_ok=True)
     before = set(dest_dir.glob("*.pdf"))
 
-    _llm_shell_commands(entry, dest_dir)
+    def _getattr(obj, name):
+        return obj.get(name, "") if isinstance(obj, dict) else getattr(obj, name, "")
+
+    journal = (
+        _getattr(entry, "journal")
+        or _getattr(entry, "dc_source")
+        or _getattr(entry, "source")
+    ).strip().lower()
+
+    used_custom = False
+    if journal == "aging cell":
+        doi = _extract_doi(entry)
+        if doi:
+            suffix = doi.split("/")[-1].replace(".", "_")
+            script = _BASE_DIR / "pdf_fetch_agingcell.sh"
+            cmd = [str(script), suffix]
+            print(f"Running Aging Cell script: {' '.join(cmd)}")
+            try:
+                subprocess.run(cmd, cwd=dest_dir, check=True)
+                used_custom = True
+            except Exception as exc:
+                print(f"Aging Cell script failed: {exc}")
+
+    if not used_custom:
+        _llm_shell_commands(entry, dest_dir)
 
     after = set(dest_dir.glob("*.pdf"))
     new_files = sorted(after - before, key=lambda p: p.name)

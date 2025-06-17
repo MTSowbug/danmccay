@@ -5,6 +5,7 @@ import json
 import types
 import time
 from pathlib import Path
+import subprocess
 import tempfile
 import feedfetchtest as fft
 import importlib
@@ -159,6 +160,31 @@ def test_download_pdf(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert result == tmp_path / 'a.pdf'
     assert not (tmp_path / 'b.pdf').exists()
+
+
+def test_download_pdf_aging_cell(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(fft, '_extract_doi', lambda e: 'https://doi.org/10.1111/acel.70123')
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'Aging Cell'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('acel_70123')
+    assert result == tmp_path / 'article_fulltest_version1.pdf'
 
 def test_save_articles(tmp_path):
     path = tmp_path / 'a.json'
