@@ -527,6 +527,7 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
 
         print(f"Aging Cell routine.")
         doi = _extract_doi(entry)
+        print(f"Doi appears to be: {doi}")
         if doi:
             suffix = doi.split("/")[-1].replace(".", "_")
             script = _BASE_DIR / "pdf_fetch_agingcell.sh"
