@@ -1468,7 +1468,7 @@ lambda chardata: (
                 print("Periodically saving state...")
                 save_state()
                 
-            print("\nSCORE: " + str(score) + " ACTIONS: " + str(actions) + " FUTILITY: " + str(futility) + " COMBATR: " + str(finitestate.combatround) + " MODE: " + str(system_mode))
+            #print("\nSCORE: " + str(score) + " ACTIONS: " + str(actions) + " FUTILITY: " + str(futility) + " COMBATR: " + str(finitestate.combatround) + " MODE: " + str(system_mode))
 
             now = dt.datetime.now()
             if now.hour == 6 and (last_rss_date is None or last_rss_date != now.date()):
