@@ -519,10 +519,10 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
         _getattr(entry, "journal")
         or _getattr(entry, "dc_source")
         or _getattr(entry, "source")
-    ).strip().lower()
+    ).strip()
 
     used_custom = False
-    if journal == "aging cell":
+    if journal.lower() == "aging cell":
         doi = _extract_doi(entry)
         if doi:
             suffix = doi.split("/")[-1].replace(".", "_")
