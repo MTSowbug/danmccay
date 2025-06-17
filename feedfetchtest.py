@@ -719,6 +719,7 @@ def download_journal_pdfs(
         print(f"Journal: {entry.journal}")
         print(f"Title: {entry.title}")
         print(f"Link: {entry.link}")
+        print(f"DOI: {entry.doi}")
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
         if pdf_path:
