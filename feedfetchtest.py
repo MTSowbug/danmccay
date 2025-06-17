@@ -431,6 +431,45 @@ def _llm_extract_doi(html: str) -> str:
     return m.group(0).strip() if m else ""
 
 
+def _llm_primary_link(html: str) -> str:
+    """Return the doi.org link that is the primary focus of this Fight Aging! HTML."""
+    links = re.findall(r"href=['\"](https?://doi.org/[^'\"]+)['\"]", html, re.I)
+    if not links:
+        return ""
+    if len(links) == 1:
+        return links[0]
+
+    snippet = html[:4000]
+    sample = "\n".join(f"- {l}" for l in links[:20])
+    client = openai.OpenAI()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Choose the doi.org URL from the candidate list that links to the primary research paper discussed in the Fight Aging! HTML provided. Respond only with that URL."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"HTML:\n```\n{snippet}\n```\n\nLinks:\n{sample}",
+        },
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=30,
+        )
+        text = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM link selection failed: {exc}")
+        return ""
+
+    m = re.search(r"https?://doi.org/[^\s]+", text)
+    return m.group(0).strip() if m else links[0]
+
+
 def _resolve_fightaging_item(url: str) -> tuple[str, str, str]:
     """Return the actual article link, DOI, and journal from a Fight Aging! post."""
     try:
@@ -440,7 +479,9 @@ def _resolve_fightaging_item(url: str) -> tuple[str, str, str]:
         print(f"Failed to fetch {url}: {exc}")
         return url, "", ""
 
-    doi = _llm_extract_doi(html)
+    doi = _llm_primary_link(html)
+    if not doi:
+        doi = _llm_extract_doi(html)
     if doi:
         target = doi
     else:
