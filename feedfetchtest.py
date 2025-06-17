@@ -187,7 +187,8 @@ Provide Linux shell commands to find and download the full text of the scientifi
 This link is just a starting point - you will have to determine the URL of the article itself via web browsing. You may not have the correct institutional credentials - you will have to determine whether or not this is true. Provide commands to download the best version of the article available.
 Search the web to find details you need about how the relevant website is structured in order to find the PDF.
 Note that external arguments cannot be used with your shell commands.
-Name the downloaded pdf "article_fulltest_version1.pdf". If you attempt to download multiple versions of the pdf, name them "article_fulltest_version2.pdf", "article_fulltest_version3.pdf", and so on. The best version of the article should be version1, 2nd-best version should be version2, and so on.
+Name the downloaded pdf "article_fulltest_version1.pdf". When you attempt to download multiple versions of the pdf, name them "article_fulltest_version2.pdf", "article_fulltest_version3.pdf", and so on. The best version of the article should be version1, 2nd-best version should be version2, and so on.
+Do not attempt to end the script early via "exit" or other means; instead, download every version of the article that you can.
 The shell commands may make use of an external file "../pdfs/jar.cookies" that contains various institutional credentials.
 Include extensive debugging information by the use of echos, such that, if your code fails, you will be able to learn what went wrong in the future.
 Respond only with shell commands or a shell script that can be directly pasted into a terminal. Type nothing else.
