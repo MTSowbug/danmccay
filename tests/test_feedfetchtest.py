@@ -73,6 +73,7 @@ def test_entry_to_article_data(monkeypatch):
     assert data['journal'] == 'Journal'
     assert data['year'] == 1970
     assert data['abstract'] == 'Abstract'
+    assert data['link'] == 'https://doi.org/10.1234/test'
     # date-added should parse to datetime isoformat; check endswithZ
     assert data['num-retrievals'] == 0
     assert 'date-added' in data
@@ -257,4 +258,33 @@ def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
     stored = json.loads(json_path.read_text())
     assert sum('pdf' in v for v in stored.values()) == 1
     assert stored['1']['pdf'] == 't1.pdf'
+
+
+def test_download_missing_pdfs_key_fallback(monkeypatch, tmp_path):
+    data = {
+        'https://example.com/a': {'title': 't1'},
+        'https://example.com/b': {'title': 't2'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    captured = []
+
+    def fake_download(entry, dest):
+        captured.append(entry.link)
+        p = dest / f"{entry.title}.pdf"
+        p.write_bytes(b'd')
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_missing_pdfs(json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert stored['https://example.com/a']['pdf'] == 't1.pdf'
+    assert captured[0] == 'https://example.com/a'
 
