@@ -155,6 +155,8 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
     except Exception:
         sample_script = ""
 
+    print(f"Entry link:\n{entry.link}")
+
     messages = [
         {
             "role": "system",
@@ -195,7 +197,7 @@ Respond only with shell commands or a shell script that can be directly pasted i
 
     try:
         resp = client.chat.completions.create(
-            model=THINKING_MODEL,
+            model=SPEAKING_MODEL,
             messages=messages,
             max_completion_tokens=3000,
         )
@@ -238,7 +240,7 @@ Respond only with shell commands or a shell script that can be directly pasted i
                 }
             ]
             retry = client.chat.completions.create(
-                model=THINKING_MODEL,
+                model=SPEAKING_MODEL,
                 messages=retry_messages,
                 max_completion_tokens=3000,
             )
