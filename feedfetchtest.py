@@ -30,6 +30,7 @@ import subprocess
 import shlex
 import time
 import random
+import shutil
 
 import feedparser as _fp
 
@@ -562,8 +563,18 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     for extra in valid_pdfs[1:]:
         extra.unlink(missing_ok=True)
 
-    print(f"Downloaded PDF {chosen}")
-    return chosen
+    # Move the final PDF to the canonical storage directory
+    final_dir = (_BASE_DIR / "../pdfs").resolve()
+    final_dir.mkdir(parents=True, exist_ok=True)
+    final_path = final_dir / chosen.name
+    try:
+        shutil.move(str(chosen), final_path)
+    except Exception:
+        # Fallback if moving fails for some reason
+        chosen.replace(final_path)
+
+    print(f"Downloaded PDF {final_path}")
+    return final_path
 
 
 def fetch_recent_articles(
