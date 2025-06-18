@@ -616,6 +616,7 @@ def fetch_recent_articles(
                     doi = _discover_doi(entry, pdf_path)
                     if doi:
                         articles[key]["doi"] = doi
+                print(f"An update was made. {str(rel)}, {doi}")
                 time.sleep(random.uniform(5, 10))
             print(entry.title)
 
