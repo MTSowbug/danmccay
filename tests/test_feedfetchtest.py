@@ -489,3 +489,33 @@ def test_download_missing_pdfs_failure(monkeypatch, tmp_path):
     assert 'pdf' not in stored['1']
     assert stored['1']['download_successful'] is False
 
+
+def test_download_journal_pdfs_skips_successful(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 't1', 'link': 'L1', 'journal': 'Aging Cell', 'download_successful': True},
+        '2': {'title': 't2', 'link': 'L2', 'journal': 'Aging Cell'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    downloaded = []
+
+    def fake_download(entry, dest):
+        downloaded.append(entry.title)
+        p = dest / f"{entry.title}.pdf"
+        p.write_bytes(b'd')
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_journal_pdfs('Aging Cell', json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert 'pdf' not in stored['1']
+    assert stored['2']['pdf'] == 't2.pdf'
+    assert downloaded == ['t2']
+    assert stored['2']['download_successful'] is True
