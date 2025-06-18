@@ -437,16 +437,18 @@ def test_download_missing_pdfs_key_fallback(monkeypatch, tmp_path):
 
 def test_download_journal_pdfs(monkeypatch, tmp_path):
     data = {
-        '1': {'title': 't1', 'link': 'L1', 'journal': 'Aging Cell'},
+        '1': {'title': 't1', 'link': 'L1', 'journal': 'Aging Cell', 'doi': 'https://doi.org/10.1234/x'},
         '2': {'title': 't2', 'link': 'L2', 'journal': 'Other'},
     }
     json_path = tmp_path / 'a.json'
     json_path.write_text(json.dumps(data))
 
     downloaded = []
+    seen_doi = []
 
     def fake_download(entry, dest):
         downloaded.append(entry.title)
+        seen_doi.append(getattr(entry, 'doi', None))
         p = dest / f"{entry.title}.pdf"
         p.write_bytes(b'd')
         return p
@@ -463,4 +465,5 @@ def test_download_journal_pdfs(monkeypatch, tmp_path):
     assert stored['1']['pdf'] == 't1.pdf'
     assert '2' not in stored or 'pdf' not in stored['2']
     assert downloaded == ['t1']
+    assert seen_doi == ['https://doi.org/10.1234/x']
 
