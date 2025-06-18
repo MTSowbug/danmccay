@@ -734,6 +734,7 @@ def download_journal_pdfs(
         print(f"DOI: {getattr(entry, 'doi', '')}")
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
+        print(f"PDF Path is {pdf_path}")
         data["download_successful"] = pdf_path is not None
         if pdf_path:
             rel = pdf_path.relative_to(_PDF_DIR)
@@ -743,6 +744,7 @@ def download_journal_pdfs(
                 data["doi"] = doi
         updated = True
         processed += 1
+        print(f"How far did we get? {doi}")
         time.sleep(random.uniform(5, 10))
 
     if updated:
