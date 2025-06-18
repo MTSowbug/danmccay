@@ -717,6 +717,8 @@ def download_journal_pdfs(
                 link = doi
         entry.link = link
         entry.journal = data.get("journal", "")
+        if "doi" in data and data["doi"]:
+            entry.doi = data["doi"]
 
         print(f"Journal: {entry.journal}")
         print(f"Title: {entry.title}")
