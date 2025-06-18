@@ -703,7 +703,11 @@ def download_journal_pdfs(
     processed = 0
     for key, data in articles.items():
         j = data.get("journal", "").strip().lower()
-        if j != target or data.get("pdf"):
+        if (
+            j != target
+            or data.get("pdf")
+            or data.get("download_successful") is True
+        ):
             continue
         if max_articles is not None and processed >= max_articles:
             break
