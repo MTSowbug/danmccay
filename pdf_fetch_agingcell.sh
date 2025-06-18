@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
-# wiley-get.sh — download an open-access Wiley PDF by DOI
+# pdf_fetch_agingcell.sh — download an open-access Wiley PDF by DOI
 
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-  printf 'Usage: %s <wiley-doi>\n' "$0" >&2
+  printf 'Usage: %s <doi-suffix | full-doi>\n' "$0" >&2
+  printf 'Examples:\n  %s acel.70110\n  %s 10.1111/acel.70110\n' "$0" "$0" >&2
   exit 1
 fi
 
-DOI="$1"                              # e.g. 10.1111/acel.70110
-out="${DOI//\//_}.pdf"                # 10.1111_acel.70110.pdf
+arg="$1"
+
+# Prepend the Wiley prefix only when it’s missing
+if [[ "$arg" == */* ]]; then
+  DOI="$arg"            # already a full DOI
+else
+  DOI="10.1111/$arg"    # add Wiley prefix
+fi
+
+out="${DOI//\//_}.pdf"   # e.g. 10.1111_acel.70110.pdf
 
 wget -O "$out" \
   --header='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
