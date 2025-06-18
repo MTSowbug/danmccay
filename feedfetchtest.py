@@ -3,7 +3,7 @@ Fetch every article published in the last 24 h from an OPML list of RSS feeds.
 
 Dependencies
 ------------
-pip install feedparser openai
+pip install feedparser openai PyPDF2
 
 Usage
 -----
