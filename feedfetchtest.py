@@ -609,6 +609,7 @@ def fetch_recent_articles(
             articles[key] = article
             if download_pdfs:
                 pdf_path = _download_pdf(entry, _PDF_DIR)
+                articles[key]["download_successful"] = pdf_path is not None
                 if pdf_path:
                     rel = pdf_path.relative_to(_PDF_DIR)
                     articles[key]["pdf"] = str(rel)
@@ -665,13 +666,14 @@ def download_missing_pdfs(
         entry.link = link
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
+        data["download_successful"] = pdf_path is not None
         if pdf_path:
             rel = pdf_path.relative_to(_PDF_DIR)
             data["pdf"] = str(rel)
             doi = _discover_doi(entry, pdf_path)
             if doi:
                 data["doi"] = doi
-            updated = True
+        updated = True
         processed += 1
         time.sleep(random.uniform(5, 10))
 
@@ -727,13 +729,14 @@ def download_journal_pdfs(
         print(f"DOI: {getattr(entry, 'doi', '')}")
 
         pdf_path = _download_pdf(entry, _PDF_DIR)
+        data["download_successful"] = pdf_path is not None
         if pdf_path:
             rel = pdf_path.relative_to(_PDF_DIR)
             data["pdf"] = str(rel)
             doi = _discover_doi(entry, pdf_path)
             if doi:
                 data["doi"] = doi
-            updated = True
+        updated = True
         processed += 1
         time.sleep(random.uniform(5, 10))
 
