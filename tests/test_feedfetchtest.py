@@ -286,6 +286,7 @@ def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
 
     articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=True)
     assert articles['ID']['pdf'] == 'p.pdf'
+    assert articles['ID']['download_successful']
 
 
 def test_fightaging_special_case(monkeypatch):
@@ -404,6 +405,7 @@ def test_download_missing_pdfs_limit(monkeypatch, tmp_path):
     stored = json.loads(json_path.read_text())
     assert sum('pdf' in v for v in stored.values()) == 1
     assert stored['1']['pdf'] == 't1.pdf'
+    assert stored['1']['download_successful']
 
 
 def test_download_missing_pdfs_key_fallback(monkeypatch, tmp_path):
@@ -433,6 +435,25 @@ def test_download_missing_pdfs_key_fallback(monkeypatch, tmp_path):
     stored = json.loads(json_path.read_text())
     assert stored['https://example.com/a']['pdf'] == 't1.pdf'
     assert captured[0] == 'https://example.com/a'
+    assert stored['https://example.com/a']['download_successful']
+
+
+def test_download_missing_pdfs_failure_record(monkeypatch, tmp_path):
+    data = {'1': {'title': 't1', 'link': 'L1'}}
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    monkeypatch.setattr(fft, '_download_pdf', lambda *a, **k: None)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_missing_pdfs(json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert stored['1']['download_successful'] is False
+    assert 'pdf' not in stored['1']
 
 
 def test_download_journal_pdfs(monkeypatch, tmp_path):
@@ -466,4 +487,5 @@ def test_download_journal_pdfs(monkeypatch, tmp_path):
     assert '2' not in stored or 'pdf' not in stored['2']
     assert downloaded == ['t1']
     assert seen_doi == ['https://doi.org/10.1234/x']
+    assert stored['1']['download_successful']
 
