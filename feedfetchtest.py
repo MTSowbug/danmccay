@@ -531,7 +531,8 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
             doi = _extract_doi_from_url(getattr(entry, "link", ""))
         print(f"Doi appears to be: {doi}")
         if doi:
-            suffix = doi.split("/")[-1].replace(".", "_")
+            #suffix = doi.split("/")[-1].replace(".", "_")
+            suffix = doi.split("/")[-1]
             script = _BASE_DIR / "pdf_fetch_agingcell.sh"
             cmd = [str(script), suffix]
             print(f"Running Aging Cell script: {' '.join(cmd)}")
