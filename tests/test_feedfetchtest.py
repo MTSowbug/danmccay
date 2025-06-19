@@ -164,8 +164,10 @@ def test_download_pdf(monkeypatch, tmp_path):
     class E: link='x'; title='t'
 
     result = fft._download_pdf(E(), tmp_path)
-    assert result == tmp_path / 'a.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'a.pdf'
+    assert result == expected
     assert not (tmp_path / 'b.pdf').exists()
+    assert not (tmp_path / 'a.pdf').exists()
 
 
 def test_download_pdf_aging_cell(monkeypatch, tmp_path):
@@ -190,7 +192,9 @@ def test_download_pdf_aging_cell(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('acel.70123')
-    assert result == tmp_path / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
 
 def test_download_pdf_aging_cell_case_insensitive(monkeypatch, tmp_path):
@@ -216,7 +220,9 @@ def test_download_pdf_aging_cell_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('acel.70123')
-    assert result == tmp_path / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
 def test_save_articles(tmp_path):
     path = tmp_path / 'a.json'
