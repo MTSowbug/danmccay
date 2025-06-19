@@ -9,7 +9,12 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
-arg="$1"
+raw="$1"
+
+# Strip optional scheme and "doi.org/" host, leaving only the DOI or suffix
+arg="${raw#http://}"
+arg="${arg#https://}"
+arg="${arg#doi.org/}"
 
 # Prepend the Wiley prefix only when it’s missing
 if [[ "$arg" == */* ]]; then
