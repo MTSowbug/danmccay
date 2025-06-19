@@ -1008,17 +1008,19 @@ def qtable_to_graph(dict):
 
 
 def _scheduled_agingcell_worker():
-    """Background task fetching Aging Cell PDFs each morning."""
+    """Background task fetching Aging Cell and Aging PDFs each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
+    journals = ("Aging Cell", "Aging")
     while True:
         now = dt.datetime.now().time()
         if start <= now <= end:
-            if pending_journal_articles("Aging Cell"):
-                try:
-                    download_journal_pdfs("Aging Cell", max_articles=1)
-                except Exception as exc:
-                    print(f"Scheduled Aging Cell fetch failed: {exc}")
+            for journal in journals:
+                if pending_journal_articles(journal):
+                    try:
+                        download_journal_pdfs(journal, max_articles=1)
+                    except Exception as exc:
+                        print(f"Scheduled {journal} fetch failed: {exc}")
             time.sleep(random.uniform(240, 360))
         else:
             time.sleep(60)
