@@ -2,6 +2,8 @@ import os, sys; sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import builtins
 import pandas as pd
 import types
+import datetime as dt
+import pytest
 
 import codagent_mccay as cam
 
@@ -230,3 +232,28 @@ def test_fetch_article_command(monkeypatch):
             pass
 
     assert calls == [1]
+
+
+def test_scheduled_agingcell_worker_fetches_both(monkeypatch):
+    """Ensure scheduled worker downloads PDFs for both journals."""
+    downloaded = []
+    monkeypatch.setattr(cam, 'pending_journal_articles', lambda j: True)
+    monkeypatch.setattr(cam, 'download_journal_pdfs', lambda j, max_articles=1: downloaded.append(j))
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 6, 45)
+
+    monkeypatch.setattr(cam.dt, 'datetime', FakeDateTime)
+    monkeypatch.setattr(cam.random, 'uniform', lambda a, b: 0)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, 'sleep', stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_agingcell_worker()
+
+    assert downloaded == ['Aging Cell', 'Aging']
