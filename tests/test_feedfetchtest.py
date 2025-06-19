@@ -279,6 +279,69 @@ def test_download_pdf_aging_us_case_insensitive(monkeypatch, tmp_path):
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
+
+def test_download_pdf_nataging(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1038/s43587-025-00901-6',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'Nature Aging'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
+
+def test_download_pdf_nataging_case_insensitive(monkeypatch, tmp_path):
+    """Ensure Nature Aging journal comparison ignores capitalization."""
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1038/s43587-025-00901-6',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'NATURE AGING'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
 def test_save_articles(tmp_path):
     path = tmp_path / 'a.json'
     fft._save_articles({'k': {'v': 1}}, path)
