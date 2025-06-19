@@ -762,6 +762,37 @@ def download_journal_pdfs(
         _save_articles(articles, json_path)
 
 
+def pending_journal_articles(
+    journal: str,
+    json_path: Path = _ARTICLES_JSON,
+) -> bool:
+    """Return ``True`` if *json_path* contains an undownloaded article.
+
+    The ``journal`` comparison ignores case. An article counts as pending if it
+    matches the journal name and lacks a stored PDF or a successful download
+    flag.
+    """
+    if not json_path.is_file():
+        return False
+
+    try:
+        with json_path.open("r", encoding="utf-8") as fh:
+            articles = json.load(fh)
+    except Exception:
+        return False
+
+    target = journal.strip().lower()
+    for data in articles.values():
+        j = data.get("journal", "").strip().lower()
+        if j != target:
+            continue
+        if data.get("pdf") or data.get("download_successful") is True:
+            continue
+        return True
+
+    return False
+
+
 def summarize_articles(
     json_path: Path = _ARTICLES_JSON,
     model: str = SPEAKING_MODEL,

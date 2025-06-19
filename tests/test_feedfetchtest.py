@@ -525,3 +525,24 @@ def test_download_journal_pdfs_skips_successful(monkeypatch, tmp_path):
     assert stored['2']['pdf'] == 't2.pdf'
     assert downloaded == ['t2']
     assert stored['2']['download_successful'] is True
+
+
+def test_pending_journal_articles(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 't1', 'journal': 'Aging Cell'},
+        '2': {
+            'title': 't2',
+            'journal': 'Aging Cell',
+            'pdf': 't2.pdf',
+            'download_successful': True,
+        },
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    assert fft.pending_journal_articles('Aging Cell', json_path=json_path)
+
+    data['1']['download_successful'] = True
+    json_path.write_text(json.dumps(data))
+
+    assert not fft.pending_journal_articles('Aging Cell', json_path=json_path)
