@@ -363,6 +363,8 @@ def _extract_doi_from_url(url: str) -> str:
         with urllib.request.urlopen(url) as resp:
             final = resp.geturl()
             data = resp.read().decode("utf-8", errors="ignore")
+            print(f"Incoming opened URL")
+            print(f"Data: {data}")
     except Exception as exc:
         print(f"Failed to fetch {url}: {exc}")
         return ""
@@ -530,6 +532,7 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
         print(f"Nature Aging routine.")
         doi = _extract_doi(entry)
         if not doi:
+            print(f"Confirming link: {getattr(entry, "link", "")}")
             doi = _extract_doi_from_url(getattr(entry, "link", ""))
         print(f"Doi appears to be: {doi}")
         if doi:
