@@ -234,10 +234,34 @@ def test_fetch_article_command(monkeypatch):
     assert calls == [1]
 
 
-def test_scheduled_agingcell_worker_fetches_both(monkeypatch):
-    """Ensure scheduled worker downloads PDFs for both journals."""
+def test_fetch_nataging_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        cam, "download_journal_pdfs", lambda j, max_articles=1: calls.append((j, max_articles))
+    )
+    monkeypatch.setattr(cam, "send_command", lambda tn, c: "resp")
+
+    response = "McCay, FETCH NATURE AGING"
+    if "mccay, fetch nature aging" in response.lower():
+        cam.send_command(None, "emote searches for a Nature Aging PDF.")
+        try:
+            cam.download_journal_pdfs("Nature Aging", max_articles=1)
+        except Exception:
+            pass
+
+    assert calls == [("Nature Aging", 1)]
+
+
+def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
+    """Ensure scheduled worker downloads PDFs for all journals."""
     downloaded = []
-    monkeypatch.setattr(cam, 'pending_journal_articles', lambda j: True)
+    checked = []
+
+    def fake_pending(j):
+        checked.append(j)
+        return True
+
+    monkeypatch.setattr(cam, 'pending_journal_articles', fake_pending)
     monkeypatch.setattr(cam, 'download_journal_pdfs', lambda j, max_articles=1: downloaded.append(j))
 
     class FakeDateTime(dt.datetime):
@@ -256,4 +280,5 @@ def test_scheduled_agingcell_worker_fetches_both(monkeypatch):
     with pytest.raises(StopIteration):
         cam._scheduled_agingcell_worker()
 
-    assert downloaded == ['Aging Cell', 'Aging']
+    assert downloaded == ['Aging Cell', 'Aging', 'Nature Aging']
+    assert checked == ['aging cell', 'aging', 'nature aging']

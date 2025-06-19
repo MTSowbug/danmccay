@@ -1008,19 +1008,20 @@ def qtable_to_graph(dict):
 
 
 def _scheduled_agingcell_worker():
-    """Background task fetching Aging Cell and Aging PDFs each morning."""
+    """Background task fetching Aging Cell, Aging and Nature Aging PDFs each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
-    journals = ("Aging Cell", "Aging")
+    journals = ("Aging Cell", "Aging", "Nature Aging")
+    journal_map = {j.lower(): j for j in journals}
     while True:
         now = dt.datetime.now().time()
         if start <= now <= end:
-            for journal in journals:
-                if pending_journal_articles(journal):
+            for j_lower, name in journal_map.items():
+                if pending_journal_articles(j_lower):
                     try:
-                        download_journal_pdfs(journal, max_articles=1)
+                        download_journal_pdfs(name, max_articles=1)
                     except Exception as exc:
-                        print(f"Scheduled {journal} fetch failed: {exc}")
+                        print(f"Scheduled {name} fetch failed: {exc}")
             time.sleep(random.uniform(240, 360))
         else:
             time.sleep(60)
@@ -1672,6 +1673,15 @@ lambda chardata: (
                     download_journal_pdfs("Aging", max_articles=1)
                 except Exception as exc:
                     print(f"Aging fetch failed: {exc}")
+                continue
+            elif "mccay, fetch nature aging" in response.lower():
+                response = send_command(tn, "emote searches for a Nature Aging PDF.")
+                try:
+                    print("Fetching a Nature Aging article PDF...")
+                    from feedfetchtest import download_journal_pdfs
+                    download_journal_pdfs("Nature Aging", max_articles=1)
+                except Exception as exc:
+                    print(f"Nature Aging fetch failed: {exc}")
                 continue
             elif "McCay, let's chat" in response:
                 response = send_command(tn, "emote looks up from his notes.")
