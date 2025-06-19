@@ -9,7 +9,12 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
-arg="$1"
+raw="$1"
+
+# Allow optional scheme and "doi.org/" prefix like pdf_fetch_aging.sh
+arg="${raw#http://}"
+arg="${arg#https://}"
+arg="${arg#doi.org/}"
 
 if [[ "$arg" == */* ]]; then
   DOI="$arg"            # already a full DOI
