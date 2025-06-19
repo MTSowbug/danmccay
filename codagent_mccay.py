@@ -23,7 +23,13 @@ from strip_ansi import strip_ansi
 from collections import deque
 import datetime as dt
 import logging
-from feedfetchtest import fetch_recent_articles, download_missing_pdfs
+from feedfetchtest import (
+    fetch_recent_articles,
+    download_missing_pdfs,
+    download_journal_pdfs,
+    pending_journal_articles,
+)
+import threading
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 
 # Character prompt loaded from YAML at runtime
@@ -1001,6 +1007,23 @@ def qtable_to_graph(dict):
     return graph
 
 
+def _scheduled_agingcell_worker():
+    """Background task fetching Aging Cell PDFs each morning."""
+    start = dt.time(6, 30)
+    end = dt.time(7, 30)
+    while True:
+        now = dt.datetime.now().time()
+        if start <= now <= end:
+            if pending_journal_articles("Aging Cell"):
+                try:
+                    download_journal_pdfs("Aging Cell", max_articles=1)
+                except Exception as exc:
+                    print(f"Scheduled Aging Cell fetch failed: {exc}")
+            time.sleep(random.uniform(240, 360))
+        else:
+            time.sleep(60)
+
+
 
 
 #Claude 3.5 Sonnet AI call
@@ -1315,6 +1338,9 @@ def main():
         daemonize(args.logfile, args.pidfile)
 
     print(f"Mode set to: {system_mode}")
+
+    # Start background fetcher thread
+    threading.Thread(target=_scheduled_agingcell_worker, daemon=True).start()
 
     with open(personality_file, 'r') as file:
         core_personality = yaml.safe_load(file)
