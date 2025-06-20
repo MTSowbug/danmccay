@@ -664,3 +664,33 @@ def test_pending_journal_articles(monkeypatch, tmp_path):
     json_path.write_text(json.dumps(data))
 
     assert not fft.pending_journal_articles('Aging Cell', json_path=json_path)
+
+
+def test_extract_doi_from_url_ignores_citation_reference(monkeypatch):
+    html = (
+        '<meta name="citation_reference" '
+        'content="B\xf6hm, M. et al. Endocrine controls of skin aging. '
+        'Endocr. Rev. https://doi.org/10.1210/endrev/bnae034 (2025)." />\n'
+        '<meta name="citation_doi" content="10.5555/main.doi" />'
+    )
+
+    class Resp:
+        def __init__(self, text):
+            self.text = text.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            return self.text
+
+        def geturl(self):
+            return 'http://example.com'
+
+    monkeypatch.setattr(fft.urllib.request, 'urlopen', lambda url: Resp(html))
+
+    doi = fft._extract_doi_from_url('http://example.com')
+    assert doi == 'https://doi.org/10.5555/main.doi'

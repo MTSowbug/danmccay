@@ -363,6 +363,13 @@ def _extract_doi_from_url(url: str) -> str:
         with urllib.request.urlopen(url) as resp:
             final = resp.geturl()
             data = resp.read().decode("utf-8", errors="ignore")
+            # Remove citation reference meta tags which may contain unrelated DOIs
+            data = re.sub(
+                r"<meta\s+[^>]*name=['\"]citation_reference['\"][^>]*>",
+                "",
+                data,
+                flags=re.I | re.S,
+            )
             print(f"Incoming opened URL")
             print(f"Data: {data}")
     except Exception as exc:
