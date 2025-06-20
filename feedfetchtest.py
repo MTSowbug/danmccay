@@ -190,15 +190,17 @@ def _sanitize_filename(name: str) -> str:
 def _doi_filename(doi: str) -> str:
     """Return a safe filename derived from *doi*.
 
-    The resulting string is lowercase, alphanumeric only, and always starts
-    with ``doiorg`` regardless of the DOI's original scheme.
+    The resulting string is lowercase, keeps periods, converts forward slashes
+    to underscores, and always starts with ``doiorg`` regardless of the DOI's
+    original scheme.
     """
     if not doi:
         return ""
     doi = doi.lower().strip()
     doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi)
     doi = re.sub(r"^doi:", "", doi)
-    return "doiorg" + re.sub(r"[^a-z0-9]", "", doi)
+    doi = doi.replace("/", "_")
+    return "doiorg" + re.sub(r"[^a-z0-9._]", "", doi)
 
 
 def _extract_shell_script(text: str) -> str:
