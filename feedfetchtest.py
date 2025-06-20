@@ -60,18 +60,24 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
         json.dump(existing, fh, indent=2, sort_keys=True)
 
 
-def _extract_feed_urls(opml_source: str | Path) -> List[str]:
-    """Return all RSS `xmlUrl` values contained in an OPML document."""
+def _extract_feed_urls(opml_source: str | Path, with_titles: bool = False) -> List:
+    """Return RSS ``xmlUrl`` values (and optionally titles) from an OPML document."""
     if isinstance(opml_source, Path) or Path(opml_source).is_file():
         xml = Path(opml_source).read_text(encoding="utf-8")
     else:
         xml = opml_source
     tree = _ET.fromstring(xml)
-    return [
-        node.attrib["xmlUrl"]
+    feeds = [
+        (
+            node.attrib["xmlUrl"],
+            node.attrib.get("title") or node.attrib.get("text") or "",
+        )
         for node in tree.iter("outline")
         if node.attrib.get("type") == "rss"
     ]
+    if with_titles:
+        return feeds
+    return [url for url, _ in feeds]
 
 
 def _entry_timestamp(entry) -> _dt.datetime | None:
@@ -640,7 +646,7 @@ def fetch_recent_articles(
     articles: Dict[str, dict] = {}
 
     print("Fetching...")
-    for feed_url in _extract_feed_urls(opml_source):
+    for feed_url, rss_title in _extract_feed_urls(opml_source, with_titles=True):
         parsed = _fp.parse(feed_url)
         print(feed_url)
 
@@ -662,6 +668,7 @@ def fetch_recent_articles(
                     entry["dc_source"] = journal
 
             article = _entry_to_article_data(entry)
+            article["rsstitle"] = rss_title
             articles[key] = article
             if download_pdfs:
                 pdf_path = _download_pdf(entry, _PDF_DIR)
