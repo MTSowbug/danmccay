@@ -187,6 +187,20 @@ def _sanitize_filename(name: str) -> str:
     return safe[:50]
 
 
+def _doi_filename(doi: str) -> str:
+    """Return a safe filename derived from *doi*.
+
+    The resulting string is lowercase, alphanumeric only, and always starts
+    with ``doiorg`` regardless of the DOI's original scheme.
+    """
+    if not doi:
+        return ""
+    doi = doi.lower().strip()
+    doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi)
+    doi = re.sub(r"^doi:", "", doi)
+    return "doiorg" + re.sub(r"[^a-z0-9]", "", doi)
+
+
 def _extract_shell_script(text: str) -> str:
     """Return the bash script contained in *text*."""
     m = re.search(r"```(?:bash)?\n(.*?)```", text, re.S)
@@ -640,6 +654,19 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     except Exception:
         # Fallback if moving fails for some reason
         chosen.replace(final_path)
+
+    doi = getattr(entry, "doi", None) or _extract_doi(entry)
+    if not doi:
+        doi = _extract_doi_from_pdf(final_path)
+    fname = _doi_filename(doi)
+    if fname:
+        target = final_dir / f"{fname}{final_path.suffix}"
+        if target != final_path:
+            try:
+                final_path.rename(target)
+                final_path = target
+            except Exception as exc:
+                print(f"DOI rename failed: {exc}")
 
     print(f"Downloaded PDF {final_path}")
     return final_path

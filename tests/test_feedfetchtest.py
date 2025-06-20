@@ -120,6 +120,11 @@ def test_sanitize_filename():
     assert fft._sanitize_filename('x'*60) == 'x'*50
 
 
+def test_doi_filename():
+    assert fft._doi_filename('https://doi.org/10.1234/Ab.C') == 'doiorg101234abc'
+    assert fft._doi_filename('DOI:10.1/hi-there') == 'doiorg101hithere'
+
+
 def test_extract_shell_script():
     text = 'some text\n```bash\necho hi\n```\nmore'
     assert fft._extract_shell_script(text) == 'echo hi'
@@ -194,7 +199,7 @@ def test_download_pdf_aging_cell(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('acel.70123')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101111acel70123.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -222,7 +227,7 @@ def test_download_pdf_aging_cell_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('acel.70123')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101111acel70123.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -249,7 +254,7 @@ def test_download_pdf_aging_us(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.18632/aging.206245')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg1018632aging206245.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -277,7 +282,7 @@ def test_download_pdf_aging_us_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.18632/aging.206245')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg1018632aging206245.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -308,7 +313,7 @@ def test_download_pdf_nataging(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101038s43587025009016.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -340,7 +345,7 @@ def test_download_pdf_nataging_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101038s43587025009016.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -371,7 +376,7 @@ def test_download_pdf_geroscience(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101007s11357021004690.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -403,7 +408,7 @@ def test_download_pdf_geroscience_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg101007s11357021004690.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
