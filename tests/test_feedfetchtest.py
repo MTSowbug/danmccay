@@ -14,12 +14,14 @@ import importlib
 def test_extract_feed_urls():
     opml = """
     <opml><body>
-        <outline type='rss' xmlUrl='http://a.com/feed'/>
-        <outline text='x'><outline type='rss' xmlUrl='http://b.com/rss'/></outline>
+        <outline type='rss' xmlUrl='http://a.com/feed' title='A'/>
+        <outline text='x'><outline type='rss' xmlUrl='http://b.com/rss' title='B'/></outline>
     </body></opml>
     """
     urls = fft._extract_feed_urls(opml)
     assert urls == ['http://a.com/feed', 'http://b.com/rss']
+    feeds = fft._extract_feed_urls(opml, with_titles=True)
+    assert feeds == [('http://a.com/feed', 'A'), ('http://b.com/rss', 'B')]
 
 def test_entry_timestamp():
     class Entry: pass
@@ -353,7 +355,7 @@ def test_save_articles(tmp_path):
     assert set(data2.keys()) == {'k', 'k2'}
 
 def test_fetch_recent_articles(monkeypatch, tmp_path):
-    opml = '<opml><body><outline type="rss" xmlUrl="http://feed"/></body></opml>'
+    opml = '<opml><body><outline type="rss" xmlUrl="http://feed" title="FT"/></body></opml>'
 
     class Parsed:
         def __init__(self, entries):
@@ -375,9 +377,10 @@ def test_fetch_recent_articles(monkeypatch, tmp_path):
     articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=False)
     assert 'ID' in articles
     assert articles['ID']['title'] == 'T'
+    assert articles['ID']['rsstitle'] == 'FT'
 
 def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
-    opml = '<opml><body><outline type="rss" xmlUrl="http://feed"/></body></opml>'
+    opml = '<opml><body><outline type="rss" xmlUrl="http://feed" title="FT"/></body></opml>'
 
     class Parsed:
         def __init__(self, entries):
@@ -411,10 +414,11 @@ def test_fetch_recent_articles_pdf_relative(monkeypatch, tmp_path):
     articles = fft.fetch_recent_articles(opml, hours=1, json_path=None, download_pdfs=True)
     assert articles['ID']['pdf'] == 'p.pdf'
     assert articles['ID']['download_successful'] is True
+    assert articles['ID']['rsstitle'] == 'FT'
 
 
 def test_fightaging_special_case(monkeypatch):
-    opml = '<opml><body><outline type="rss" xmlUrl="http://feed"/></body></opml>'
+    opml = '<opml><body><outline type="rss" xmlUrl="http://feed" title="FT"/></body></opml>'
 
     html = '<a href="https://doi.org/10.1234/x">Read more</a>'
 
@@ -473,6 +477,7 @@ def test_fightaging_special_case(monkeypatch):
     assert articles['ID']['doi'] == 'https://doi.org/10.1234/x'
     assert articles['ID']['link'] == 'https://doi.org/10.1234/x'
     assert articles['ID']['journal'] == 'J'
+    assert articles['ID']['rsstitle'] == 'FT'
     assert called == []
 
 def test_summarize_articles(monkeypatch, tmp_path):
