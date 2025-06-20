@@ -1,2 +1,4 @@
 
 pdfs/*.pdf
+__pycache__/
+tests/__pycache__/
