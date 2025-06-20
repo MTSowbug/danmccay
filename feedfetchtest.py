@@ -594,6 +594,23 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
             except Exception as exc:
                 print(f"Aging Cell script failed: {exc}")
 
+    if lower_journal == "geroscience":
+
+        print(f"GeroScience routine.")
+        doi = _extract_doi(entry)
+        if not doi:
+            doi = _extract_doi_from_url(getattr(entry, "link", ""))
+        print(f"Doi appears to be: {doi}")
+        if doi:
+            script = _BASE_DIR / "pdf_fetch_geroscience.sh"
+            cmd = [str(script), doi]
+            print(f"Running GeroScience script: {' '.join(cmd)}")
+            try:
+                subprocess.run(cmd, cwd=dest_dir, check=True)
+                used_custom = True
+            except Exception as exc:
+                print(f"GeroScience script failed: {exc}")
+
     if not used_custom:
         _llm_shell_commands(entry, dest_dir)
 
@@ -799,6 +816,7 @@ def download_journal_pdfs(
         pdf_path = _download_pdf(entry, _PDF_DIR)
         print(f"PDF Path is {pdf_path}")
         data["download_successful"] = pdf_path is not None
+        doi = None
         if pdf_path:
             rel = pdf_path.relative_to(_PDF_DIR)
             data["pdf"] = str(rel)

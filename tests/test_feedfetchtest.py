@@ -344,6 +344,69 @@ def test_download_pdf_nataging_case_insensitive(monkeypatch, tmp_path):
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
+
+def test_download_pdf_geroscience(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1007/s11357-021-00469-0',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'GeroScience'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
+
+def test_download_pdf_geroscience_case_insensitive(monkeypatch, tmp_path):
+    """Ensure GeroScience journal comparison ignores capitalization."""
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1007/s11357-021-00469-0',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'GEROSCIENCE'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'article_fulltest_version1.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
 def test_save_articles(tmp_path):
     path = tmp_path / 'a.json'
     fft._save_articles({'k': {'v': 1}}, path)
@@ -648,6 +711,26 @@ def test_download_journal_pdfs_skips_successful(monkeypatch, tmp_path):
     assert stored['2']['pdf'] == 't2.pdf'
     assert downloaded == ['t2']
     assert stored['2']['download_successful'] is True
+
+
+def test_download_journal_pdfs_failure(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 't1', 'link': 'L1', 'journal': 'Aging Cell'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    monkeypatch.setattr(fft, '_download_pdf', lambda *a, **k: None)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_journal_pdfs('Aging Cell', json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert 'pdf' not in stored['1']
+    assert stored['1']['download_successful'] is False
 
 
 def test_pending_journal_articles(monkeypatch, tmp_path):
