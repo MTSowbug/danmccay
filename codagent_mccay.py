@@ -1008,10 +1008,10 @@ def qtable_to_graph(dict):
 
 
 def _scheduled_agingcell_worker():
-    """Background task fetching Aging Cell, Aging and Nature Aging PDFs each morning."""
+    """Background task fetching Aging Cell, Aging, Nature Aging and GeroScience PDFs each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
-    journals = ("Aging Cell", "Aging", "Nature Aging")
+    journals = ("Aging Cell", "Aging", "Nature Aging", "GeroScience")
     journal_map = {j.lower(): j for j in journals}
     while True:
         now = dt.datetime.now().time()
@@ -1682,6 +1682,15 @@ lambda chardata: (
                     download_journal_pdfs("Nature Aging", max_articles=1)
                 except Exception as exc:
                     print(f"Nature Aging fetch failed: {exc}")
+                continue
+            elif "mccay, check geroscience" in response.lower():
+                response = send_command(tn, "emote searches for a GeroScience PDF.")
+                try:
+                    print("Fetching a GeroScience article PDF...")
+                    from feedfetchtest import download_journal_pdfs
+                    download_journal_pdfs("GeroScience", max_articles=1)
+                except Exception as exc:
+                    print(f"GeroScience fetch failed: {exc}")
                 continue
             elif "McCay, let's chat" in response:
                 response = send_command(tn, "emote looks up from his notes.")
