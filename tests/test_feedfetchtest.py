@@ -350,6 +350,69 @@ def test_download_pdf_nataging_case_insensitive(monkeypatch, tmp_path):
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
 
+def test_download_pdf_natcomms(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1038/s41467-025-01234-7',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'Nature Communications'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1038/s41467-025-01234-7')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467025012347.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
+
+def test_download_pdf_natcomms_case_insensitive(monkeypatch, tmp_path):
+    """Ensure Nature Communications journal comparison ignores capitalization."""
+    calls = []
+
+    def fake_run(cmd, cwd=None, check=None):
+        calls.append(cmd)
+        p = Path(cwd) / 'article_fulltest_version1.pdf'
+        p.write_bytes(b'd')
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(fft.subprocess, 'run', fake_run)
+    monkeypatch.setattr(fft, '_pdf_file_valid', lambda p: True)
+    monkeypatch.setattr(fft, '_llm_shell_commands', lambda *a, **k: None)
+    monkeypatch.setattr(
+        fft,
+        '_extract_doi',
+        lambda e: 'https://doi.org/10.1038/s41467-025-01234-7',
+    )
+
+    class E:
+        link = 'x'
+        title = 't'
+        journal = 'NATURE COMMUNICATIONS'
+
+    result = fft._download_pdf(E(), tmp_path)
+    assert calls
+    assert calls[0][-1].endswith('10.1038/s41467-025-01234-7')
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467025012347.pdf'
+    assert result == expected
+    assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
+
+
 def test_download_pdf_geroscience(monkeypatch, tmp_path):
     calls = []
 

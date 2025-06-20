@@ -252,6 +252,24 @@ def test_fetch_nataging_command(monkeypatch):
     assert calls == [("Nature Aging", 1)]
 
 
+def test_fetch_natcomms_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        cam, "download_journal_pdfs", lambda j, max_articles=1: calls.append((j, max_articles))
+    )
+    monkeypatch.setattr(cam, "send_command", lambda tn, c: "resp")
+
+    response = "McCay, fetch nature communications"
+    if "mccay, fetch nature communications" in response.lower():
+        cam.send_command(None, "emote searches for a Nature Communications PDF.")
+        try:
+            cam.download_journal_pdfs("Nature Communications", max_articles=1)
+        except Exception:
+            pass
+
+    assert calls == [("Nature Communications", 1)]
+
+
 def test_check_geroscience_command(monkeypatch):
     calls = []
     monkeypatch.setattr(
@@ -298,5 +316,5 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
     with pytest.raises(StopIteration):
         cam._scheduled_agingcell_worker()
 
-    assert downloaded == ['Aging Cell', 'Aging', 'Nature Aging', 'GeroScience']
-    assert checked == ['aging cell', 'aging', 'nature aging', 'geroscience']
+    assert downloaded == ['Aging Cell', 'Aging', 'Nature Aging', 'GeroScience', 'Nature Communications']
+    assert checked == ['aging cell', 'aging', 'nature aging', 'geroscience', 'nature communications']
