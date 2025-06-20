@@ -487,7 +487,7 @@ class ChattingState(State):
                 self.is_done = True
             return response
 
-        if any("McCay, talk to you later" in l for l in lines):
+        if any("mccay, talk to you later" in l.lower() for l in lines):
             _say_lines(char.tn, "Okay, talk later.")
             self.is_done = True
             return response
@@ -1615,7 +1615,7 @@ lambda chardata: (
                 print(response)
                 time.sleep(RESTTIME)
                 continue
-            elif "McCay, check RSS" in response:
+            elif "mccay, check rss" in response.lower():
                 #say_preamble(tn, "checking the RSS feed")
                 response = send_command(tn, "emote gets to work on his daily RSS feed.")
                 try:
@@ -1625,7 +1625,7 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
-            elif "McCay, weeklong RSS" in response:
+            elif "mccay, weeklong rss" in response.lower():
                 #say_preamble(tn, "checking last week's RSS feed")
                 response = send_command(tn, "emote gets to work on his weekly RSS feed.")
                 try:
@@ -1635,7 +1635,7 @@ lambda chardata: (
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
                 continue
-            elif "McCay, summarize your RSS" in response:
+            elif "mccay, summarize your rss" in response.lower():
                 #say_preamble(tn, "summarizing the RSS feed")
                 response = send_command(tn, "emote prepares to summarize his RSS feed.")
                 try:
@@ -1648,7 +1648,7 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"RSS summary failed: {exc}")
                 continue
-            elif "McCay, fetch a PDF" in response:
+            elif "mccay, fetch a pdf" in response.lower():
                 response = send_command(tn, "emote is trying to retrieve a PDF.")
                 try:
                     print("Fetching one article PDF...")
@@ -1656,7 +1656,7 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"PDF fetch failed: {exc}")
                 continue
-            elif "McCay, fetch Aging Cell" in response:
+            elif "mccay, fetch aging cell" in response.lower():
                 response = send_command(tn, "emote searches for an Aging Cell PDF.")
                 try:
                     print("Fetching an Aging Cell article PDF...")
@@ -1665,7 +1665,7 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"Aging Cell fetch failed: {exc}")
                 continue
-            elif "McCay, fetch Aging US" in response:
+            elif "mccay, fetch aging us" in response.lower():
                 response = send_command(tn, "emote searches for an Aging PDF.")
                 try:
                     print("Fetching an Aging article PDF...")
@@ -1683,17 +1683,17 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"Nature Aging fetch failed: {exc}")
                 continue
-            elif "McCay, let's chat" in response:
+            elif "mccay, let's chat" in response.lower():
                 response = send_command(tn, "emote looks up from his notes.")
                 finitestate.change_state(ChattingState())
                 response = send_command(tn, " ")
                 continue
-            elif "McCay, talk to you later" in response:
+            elif "mccay, talk to you later" in response.lower():
                 response = send_command(tn, "emote goes back to his notes.")
                 finitestate.change_state(NoState())
                 response = send_command(tn, " ")
                 continue
-            elif "McCay, hello" in response:
+            elif "mccay, hello" in response.lower():
                 say_preamble(tn, "greetings and smalltalk")
                 response = send_command(tn, " ") #or else we get stuck in a hello loop!!
                 continue
