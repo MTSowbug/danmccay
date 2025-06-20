@@ -556,6 +556,24 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     print(f"Journal appears to be: {journal}")
     used_custom = False
     lower_journal = journal.lower()
+    if lower_journal == "nature communications":
+
+        print(f"Nature Communications routine.")
+        doi = _extract_doi(entry)
+        if not doi:
+            print(f"Confirming link: {getattr(entry, 'link', '')}")
+            doi = _extract_doi_from_url(getattr(entry, 'link', ''))
+        print(f"Doi appears to be: {doi}")
+        if doi:
+            script = _BASE_DIR / "pdf_fetch_natcomms.sh"
+            cmd = [str(script), doi]
+            print(f"Running Nature Communications script: {' '.join(cmd)}")
+            try:
+                subprocess.run(cmd, cwd=dest_dir, check=True)
+                used_custom = True
+            except Exception as exc:
+                print(f"Nature Communications script failed: {exc}")
+
     if lower_journal == "nature aging":
 
         print(f"Nature Aging routine.")
