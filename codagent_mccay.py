@@ -440,6 +440,9 @@ class ChattingState(State):
         self.recent_lines = deque(maxlen=50)
         # Buffer for a line that hasn't been completed with a newline yet.
         self.partial_line = ""
+        # Remember the last user message we replied to so we don't
+        # generate multiple replies for the same input line.
+        self.last_user_msg = None
 
     def enter(self, char):
         print(f"{char.name} is entering the Chatting state.")
@@ -494,6 +497,13 @@ class ChattingState(State):
 
         self.idle_ticks = 0
         user_msg = " \n".join(lines)
+        # If we already responded to this exact message recently, do not
+        # generate another reply. This avoids multiple reactions when the
+        # same line is seen again (for example, if the MUD echoes it).
+        if user_msg == self.last_user_msg:
+            return response
+
+        self.last_user_msg = user_msg
         self.history.append({"role": "user", "content": user_msg})
 
         if OPENAI_AVAILABLE:
