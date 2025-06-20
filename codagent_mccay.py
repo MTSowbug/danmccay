@@ -1683,7 +1683,7 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"Nature Aging fetch failed: {exc}")
                 continue
-            elif "mccay, check geroscience" in response.lower():
+            elif "mccay, fetch geroscience" in response.lower():
                 response = send_command(tn, "emote searches for a GeroScience PDF.")
                 try:
                     print("Fetching a GeroScience article PDF...")
