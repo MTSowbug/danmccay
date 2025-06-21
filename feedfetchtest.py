@@ -703,6 +703,43 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     return final_path
 
 
+def fetch_pdf_for_article(title: str, dest_dir: Path = _PDF_DIR) -> Path | None:
+    """Try to fetch a PDF for *title* using CrossRef search."""
+
+    query = urllib.parse.quote(title)
+    url = f"https://api.crossref.org/works?query.title={query}&rows=1"
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = json.load(resp)
+    except Exception as exc:
+        print(f"CrossRef lookup failed: {exc}")
+        return None
+
+    items = data.get("message", {}).get("items", [])
+    if not items:
+        print(f"No CrossRef result for {title}")
+        return None
+
+    item = items[0]
+    doi = item.get("DOI", "")
+    journal = ""
+    if item.get("container-title"):
+        journal = item["container-title"][0]
+    link = f"https://doi.org/{doi}" if doi else ""
+
+    class Entry:
+        pass
+
+    entry = Entry()
+    entry.title = title
+    entry.link = link
+    entry.journal = journal
+    if doi:
+        entry.doi = link
+
+    return _download_pdf(entry, dest_dir)
+
+
 def fetch_recent_articles(
     opml_source: str | Path,
     hours: int = 24,
