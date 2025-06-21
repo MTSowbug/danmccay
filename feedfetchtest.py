@@ -31,6 +31,7 @@ import shlex
 import time
 import random
 import shutil
+import tempfile
 
 import feedparser as _fp
 
@@ -990,6 +991,44 @@ def summarize_articles(
         summary = ""
 
     return summary
+
+
+def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
+    """Perform OCR on *pdf_name* and write ``.txt`` output."""
+
+    pdf_path = pdf_dir / pdf_name
+    if not pdf_path.is_file():
+        print(f"PDF not found: {pdf_path}")
+        return None
+
+    txt_path = pdf_path.with_suffix(".txt")
+    tmpdir = tempfile.mkdtemp(prefix="ocr_")
+    try:
+        subprocess.run([
+            "pdftoppm",
+            str(pdf_path),
+            str(Path(tmpdir) / "page"),
+            "-png",
+        ], check=True)
+
+        images = sorted(Path(tmpdir).glob("page-*.png"))
+        with txt_path.open("w", encoding="utf-8") as out:
+            for img in images:
+                result = subprocess.run(
+                    ["tesseract", str(img), "stdout", "-l", "eng"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                out.write(result.stdout)
+    except Exception as exc:
+        print(f"OCR failed: {exc}")
+        return None
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    print(f"Saved OCR text to {txt_path}")
+    return txt_path
 
 
 if __name__ == "__main__":
