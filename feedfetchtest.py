@@ -201,7 +201,7 @@ def _doi_filename(doi: str) -> str:
     doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi)
     doi = re.sub(r"^doi:", "", doi)
     doi = doi.replace("/", "_")
-    return "doiorg" + re.sub(r"[^a-z0-9._]", "", doi)
+    return "doiorg" + re.sub(r"[^a-z0-9._-]", "", doi)
 
 
 def _extract_shell_script(text: str) -> str:
