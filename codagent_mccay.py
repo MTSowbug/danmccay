@@ -1712,11 +1712,12 @@ lambda chardata: (
                     print(f"GeroScience fetch failed: {exc}")
                 continue
             elif "mccay, do ocr on" in response.lower():
+                response2 = response
                 response = send_command(tn, "emote starts extracting text from the PDF.")
                 try:
-                    print(f"[OCR] Received command: {response}")
+                    print(f"[OCR] Received command: {response2}")
                     print("[OCR] Running OCR on PDF...")
-                    m = re.search(r"mccay, do ocr on (\S+)", response, re.IGNORECASE)
+                    m = re.search(r"mccay, do ocr on (\S+)", response2, re.IGNORECASE)
                     if m:
                         fname = m.group(1)
                         print(f"[OCR] Extracted filename: {fname}")
