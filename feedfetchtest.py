@@ -1006,6 +1006,12 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
         print(f"[OCR] PDF not found: {pdf_path}")
         return None
 
+    if not shutil.which("tesseract"):
+        print(
+            "[OCR] Tesseract executable not found. Please install the 'tesseract-ocr' package."
+        )
+        return None
+
     txt_path = pdf_path.with_suffix(".txt")
     tmpdir = tempfile.mkdtemp(prefix="ocr_")
     print(f"[OCR] Temporary directory for image pages: {tmpdir}")
