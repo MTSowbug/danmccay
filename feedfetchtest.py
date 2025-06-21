@@ -1029,17 +1029,45 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
 
         images = sorted(Path(tmpdir).glob("page-*.png"))
         print(f"[OCR] Found {len(images)} page image(s) to process.")
+        text_chunks: list[str] = []
+        for img in images:
+            print(f"[OCR] Processing image: {img}")
+            result = subprocess.run(
+                ["tesseract", str(img), "stdout", "-l", "eng"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            text_chunks.append(result.stdout)
+            print(f"[OCR] Wrote {len(result.stdout)} characters from {img}.")
+
+        raw_text = "".join(text_chunks)
+
+        client = openai.OpenAI()
+        prompt = (
+            "Below, I am pasting a scientific article that has been processed by OCR. "
+            "I want you to clean up all the mistakes and reformat the text for readability. "
+            "Do NOT summarize the text - your goal is strictly to correct OCR errors, not to alter the original article. "
+            "You must preserve the original grammar, syntax, and spelling of the article."
+        )
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": raw_text},
+        ]
+
+        try:
+            resp = client.chat.completions.create(
+                model=SPEAKING_MODEL,
+                messages=messages,
+                max_completion_tokens=5000,
+            )
+            cleaned_text = resp.choices[0].message.content
+        except Exception as exc:
+            print(f"[OCR] LLM cleanup failed: {exc}")
+            cleaned_text = raw_text
+
         with txt_path.open("w", encoding="utf-8") as out:
-            for img in images:
-                print(f"[OCR] Processing image: {img}")
-                result = subprocess.run(
-                    ["tesseract", str(img), "stdout", "-l", "eng"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                out.write(result.stdout)
-                print(f"[OCR] Wrote {len(result.stdout)} characters from {img}.")
+            out.write(cleaned_text)
     except subprocess.CalledProcessError as exc:
         print(f"[OCR] Subprocess failed: {exc}")
         return None
