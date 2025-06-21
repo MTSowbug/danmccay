@@ -29,6 +29,7 @@ from feedfetchtest import (
     download_journal_pdfs,
     pending_journal_articles,
     fetch_pdf_for_article,
+    fetch_pdf_for_doi,
 )
 import feedfetchtest as fft
 from pathlib import Path
@@ -1692,11 +1693,11 @@ lambda chardata: (
                     print(f"PDF fetch failed: {exc}")
                 continue
             elif m := re.search(r"mccay, fetch specific article:\s*(.+)", response, re.IGNORECASE):
-                article = m.group(1).strip()
+                doi = m.group(1).strip()
                 response = send_command(tn, "emote searches for the requested article.")
                 try:
-                    print(f"Fetching article PDF for '{article}'...")
-                    fetch_pdf_for_article(article)
+                    print(f"Fetching article PDF for DOI '{doi}'...")
+                    fetch_pdf_for_doi(doi)
                 except Exception as exc:
                     print(f"Specific article fetch failed: {exc}")
                 continue

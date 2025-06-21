@@ -237,20 +237,20 @@ def test_fetch_article_command(monkeypatch):
 
 def test_fetch_specific_article_command(monkeypatch):
     calls = []
-    monkeypatch.setattr(cam, 'fetch_pdf_for_article', lambda t: calls.append(t))
+    monkeypatch.setattr(cam, 'fetch_pdf_for_doi', lambda d: calls.append(d))
     monkeypatch.setattr(cam, 'send_command', lambda tn, c: 'resp')
 
-    response = 'McCay, fetch specific article: Aging 101'
+    response = 'McCay, fetch specific article: 10.1/abc'
     m = re.search(r"mccay, fetch specific article:\s*(.+)", response, re.IGNORECASE)
     if m:
         article = m.group(1).strip()
         cam.send_command(None, 'emote searches for the requested article.')
         try:
-            cam.fetch_pdf_for_article(article)
+            cam.fetch_pdf_for_doi(article)
         except Exception:
             pass
 
-    assert calls == ['Aging 101']
+    assert calls == ['10.1/abc']
 
 
 def test_fetch_nataging_command(monkeypatch):
