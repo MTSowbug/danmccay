@@ -852,7 +852,7 @@ def test_extract_doi_from_url_ignores_citation_reference(monkeypatch):
     assert doi == 'https://doi.org/10.5555/main.doi'
 
 
-def test_ocr_pdf(tmp_path):
+def test_ocr_pdf(monkeypatch, tmp_path):
     from fpdf import FPDF
 
     pdf_path = tmp_path / 't.pdf'
@@ -861,6 +861,22 @@ def test_ocr_pdf(tmp_path):
     pdf.set_font('Arial', size=12)
     pdf.cell(40, 10, 'OCR Test')
     pdf.output(str(pdf_path))
+
+    class FakeResp:
+        class choice:
+            def __init__(self):
+                self.message = types.SimpleNamespace(content='OCR Test')
+        choices = [choice()]
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=lambda **k: FakeResp())
+            )
+
+    monkeypatch.setattr(
+        fft, 'openai', types.SimpleNamespace(OpenAI=lambda: FakeClient())
+    )
 
     out = fft.ocr_pdf('t.pdf', pdf_dir=tmp_path)
     assert out == pdf_path.with_suffix('.txt')
