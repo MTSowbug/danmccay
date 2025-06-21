@@ -32,6 +32,7 @@ import time
 import random
 import shutil
 import tempfile
+import zipfile
 
 import feedparser as _fp
 
@@ -996,6 +997,9 @@ def summarize_articles(
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
     """Perform OCR on *pdf_name* and write ``.txt`` output.
 
+    Image files generated during OCR are compressed into a ``.zip`` archive
+    saved alongside the PDF and text files.
+
     Added troubleshooting messages for easier debugging of failures."""
 
     print(f"[OCR] Starting OCR for '{pdf_name}' in directory '{pdf_dir}'.")
@@ -1068,6 +1072,15 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
 
         with txt_path.open("w", encoding="utf-8") as out:
             out.write(cleaned_text)
+
+        archive_path = pdf_path.with_suffix(".zip")
+        print(f"[OCR] Saving page images to archive {archive_path}")
+        try:
+            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for img in images:
+                    zf.write(img, arcname=img.name)
+        except Exception as exc:
+            print(f"[OCR] Failed to create archive: {exc}")
     except subprocess.CalledProcessError as exc:
         print(f"[OCR] Subprocess failed: {exc}")
         return None

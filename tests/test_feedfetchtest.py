@@ -883,4 +883,9 @@ def test_ocr_pdf(monkeypatch, tmp_path):
     assert out.is_file()
     text = out.read_text().strip()
     assert 'OCR' in text
+    archive = pdf_path.with_suffix('.zip')
+    assert archive.is_file()
+    import zipfile
+    with zipfile.ZipFile(archive) as zf:
+        assert zf.namelist()
 
