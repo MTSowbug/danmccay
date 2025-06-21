@@ -20,4 +20,5 @@ dependencies:
       - strip-ansi
       - PyPDF2
       - fpdf2
+      - fpdf
       - pytest
