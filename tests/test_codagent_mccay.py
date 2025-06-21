@@ -318,3 +318,53 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
 
     assert downloaded == ['Aging Cell', 'Aging', 'Nature Aging', 'GeroScience', 'Nature Communications']
     assert checked == ['aging cell', 'aging', 'nature aging', 'geroscience', 'nature communications']
+
+
+def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
+    """Worker should start OCR for newly downloaded PDFs."""
+    created = []
+    processes = []
+
+    monkeypatch.setattr(cam.fft, '_PDF_DIR', tmp_path)
+
+    def fake_pending(j):
+        return True
+
+    def fake_download(j, max_articles=1):
+        p = tmp_path / f"{j.replace(' ', '')}.pdf"
+        p.write_bytes(b'd')
+        created.append(p.name)
+
+    class FakeProcess:
+        def __init__(self, target=None, args=(), kwargs=None):
+            self.target = target
+            self.args = args
+            self.kwargs = kwargs or {}
+
+        def start(self):
+            processes.append((self.target, self.args, self.kwargs))
+
+    monkeypatch.setattr(cam, 'pending_journal_articles', fake_pending)
+    monkeypatch.setattr(cam, 'download_journal_pdfs', fake_download)
+    monkeypatch.setattr(cam.multiprocessing, 'Process', FakeProcess)
+    monkeypatch.setattr(cam.fft, 'ocr_pdf', lambda *a, **k: None)
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 6, 45)
+
+    monkeypatch.setattr(cam.dt, 'datetime', FakeDateTime)
+    monkeypatch.setattr(cam.random, 'uniform', lambda a, b: 0)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, 'sleep', stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_agingcell_worker()
+
+    assert processes
+    targets = {args[0] for _, args, _ in processes}
+    assert targets == set(created)
