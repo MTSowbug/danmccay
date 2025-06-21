@@ -122,7 +122,7 @@ def test_sanitize_filename():
 
 def test_doi_filename():
     assert fft._doi_filename('https://doi.org/10.1234/Ab.C') == 'doiorg10.1234_ab.c'
-    assert fft._doi_filename('DOI:10.1/hi-there') == 'doiorg10.1_hithere'
+    assert fft._doi_filename('DOI:10.1/hi-there') == 'doiorg10.1_hi-there'
 
 
 def test_extract_shell_script():
@@ -313,7 +313,7 @@ def test_download_pdf_nataging(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s43587025009016.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s43587-025-00901-6.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -345,7 +345,7 @@ def test_download_pdf_nataging_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s43587-025-00901-6')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s43587025009016.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s43587-025-00901-6.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -376,7 +376,7 @@ def test_download_pdf_natcomms(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s41467-025-01234-7')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467025012347.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467-025-01234-7.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -408,7 +408,7 @@ def test_download_pdf_natcomms_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1038/s41467-025-01234-7')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467025012347.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1038_s41467-025-01234-7.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -439,7 +439,7 @@ def test_download_pdf_geroscience(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1007_s11357021004690.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1007_s11357-021-00469-0.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
@@ -471,7 +471,7 @@ def test_download_pdf_geroscience_case_insensitive(monkeypatch, tmp_path):
     result = fft._download_pdf(E(), tmp_path)
     assert calls
     assert calls[0][-1].endswith('10.1007/s11357-021-00469-0')
-    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1007_s11357021004690.pdf'
+    expected = (fft._BASE_DIR / '../pdfs').resolve() / 'doiorg10.1007_s11357-021-00469-0.pdf'
     assert result == expected
     assert not (tmp_path / 'article_fulltest_version1.pdf').exists()
 
