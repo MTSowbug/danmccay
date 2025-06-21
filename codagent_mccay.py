@@ -1711,6 +1711,18 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"GeroScience fetch failed: {exc}")
                 continue
+            elif "mccay, do ocr on" in response.lower():
+                response = send_command(tn, "emote starts extracting text from the PDF.")
+                try:
+                    print("Running OCR on PDF...")
+                    m = re.search(r"mccay, do ocr on (\S+)", response, re.IGNORECASE)
+                    if m:
+                        fname = m.group(1)
+                        from feedfetchtest import ocr_pdf
+                        ocr_pdf(fname)
+                except Exception as exc:
+                    print(f"OCR failed: {exc}")
+                continue
             elif "mccay, let's chat" in response.lower():
                 response = send_command(tn, "emote looks up from his notes.")
                 finitestate.change_state(ChattingState())

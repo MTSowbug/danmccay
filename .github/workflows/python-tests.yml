@@ -23,8 +23,10 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils tesseract-ocr
           python -m pip install --upgrade pip
           pip install openai anthropic feedparser dill strip-ansi \
-            pandas numpy pyyaml PyPDF2 pytest
+            pandas numpy pyyaml PyPDF2 fpdf2 pytest
       - name: Run tests
         run: pytest -q

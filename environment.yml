@@ -9,6 +9,8 @@ dependencies:
   - pyyaml
   - jq
   - pandoc
+  - poppler
+  - tesseract
   - pip
   - pip:
       - openai
@@ -17,4 +19,6 @@ dependencies:
       - dill
       - strip-ansi
       - PyPDF2
+      - fpdf2
+      - fpdf
       - pytest

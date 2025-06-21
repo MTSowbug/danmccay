@@ -850,3 +850,21 @@ def test_extract_doi_from_url_ignores_citation_reference(monkeypatch):
 
     doi = fft._extract_doi_from_url('http://example.com')
     assert doi == 'https://doi.org/10.5555/main.doi'
+
+
+def test_ocr_pdf(tmp_path):
+    from fpdf import FPDF
+
+    pdf_path = tmp_path / 't.pdf'
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', size=12)
+    pdf.cell(40, 10, 'OCR Test')
+    pdf.output(str(pdf_path))
+
+    out = fft.ocr_pdf('t.pdf', pdf_dir=tmp_path)
+    assert out == pdf_path.with_suffix('.txt')
+    assert out.is_file()
+    text = out.read_text().strip()
+    assert 'OCR' in text
+
