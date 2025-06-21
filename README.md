@@ -29,7 +29,13 @@ This repository contains experimental tools for interacting with the *Cleft of D
    `feedfetchtest.py` can easily process JSON data. It also installs
    `pandoc` so article summaries can be converted to PDFs. If you prefer
    not to install these via conda, you can use your system package
-   manager, e.g. `sudo apt-get install jq pandoc` on Ubuntu.
+   manager, e.g. `sudo apt-get install jq pandoc` on Ubuntu. The OCR
+   helper requires both `pdftoppm` (from the `poppler` package) and
+   `tesseract`. On Ubuntu you can get them with:
+
+   ```bash
+   sudo apt-get install poppler-utils tesseract-ocr
+   ```
 
 4. **Set API keys** for services you intend to use:
    ```bash
