@@ -994,26 +994,38 @@ def summarize_articles(
 
 
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
-    """Perform OCR on *pdf_name* and write ``.txt`` output."""
+    """Perform OCR on *pdf_name* and write ``.txt`` output.
+
+    Added troubleshooting messages for easier debugging of failures."""
+
+    print(f"[OCR] Starting OCR for '{pdf_name}' in directory '{pdf_dir}'.")
 
     pdf_path = pdf_dir / pdf_name
+    print(f"[OCR] Constructed PDF path: {pdf_path}")
     if not pdf_path.is_file():
-        print(f"PDF not found: {pdf_path}")
+        print(f"[OCR] PDF not found: {pdf_path}")
         return None
 
     txt_path = pdf_path.with_suffix(".txt")
     tmpdir = tempfile.mkdtemp(prefix="ocr_")
+    print(f"[OCR] Temporary directory for image pages: {tmpdir}")
     try:
-        subprocess.run([
-            "pdftoppm",
-            str(pdf_path),
-            str(Path(tmpdir) / "page"),
-            "-png",
-        ], check=True)
+        print(f"[OCR] Running pdftoppm to convert PDF pages to images...")
+        subprocess.run(
+            [
+                "pdftoppm",
+                str(pdf_path),
+                str(Path(tmpdir) / "page"),
+                "-png",
+            ],
+            check=True,
+        )
 
         images = sorted(Path(tmpdir).glob("page-*.png"))
+        print(f"[OCR] Found {len(images)} page image(s) to process.")
         with txt_path.open("w", encoding="utf-8") as out:
             for img in images:
+                print(f"[OCR] Processing image: {img}")
                 result = subprocess.run(
                     ["tesseract", str(img), "stdout", "-l", "eng"],
                     capture_output=True,
@@ -1021,13 +1033,18 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
                     check=True,
                 )
                 out.write(result.stdout)
+                print(f"[OCR] Wrote {len(result.stdout)} characters from {img}.")
+    except subprocess.CalledProcessError as exc:
+        print(f"[OCR] Subprocess failed: {exc}")
+        return None
     except Exception as exc:
-        print(f"OCR failed: {exc}")
+        print(f"[OCR] Unexpected failure: {exc}")
         return None
     finally:
+        print(f"[OCR] Cleaning up temporary directory {tmpdir}")
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-    print(f"Saved OCR text to {txt_path}")
+    print(f"[OCR] Saved OCR text to {txt_path}")
     return txt_path
 
 
