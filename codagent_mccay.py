@@ -29,6 +29,9 @@ from feedfetchtest import (
     download_journal_pdfs,
     pending_journal_articles,
 )
+import feedfetchtest as fft
+from pathlib import Path
+import multiprocessing
 import threading
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 
@@ -1029,7 +1032,21 @@ def _scheduled_agingcell_worker():
             for j_lower, name in journal_map.items():
                 if pending_journal_articles(j_lower):
                     try:
+                        pdf_dir = Path(fft._PDF_DIR)
+                        before = set(pdf_dir.glob("*.pdf"))
                         download_journal_pdfs(name, max_articles=1)
+                        after = set(pdf_dir.glob("*.pdf"))
+                        new_pdfs = after - before
+                        for pdf in new_pdfs:
+                            try:
+                                proc = multiprocessing.Process(
+                                    target=fft.ocr_pdf,
+                                    args=(pdf.name, pdf_dir),
+                                )
+                                proc.daemon = True
+                                proc.start()
+                            except Exception as exc:
+                                print(f"Scheduled OCR failed: {exc}")
                     except Exception as exc:
                         print(f"Scheduled {name} fetch failed: {exc}")
             time.sleep(random.uniform(240, 360))
