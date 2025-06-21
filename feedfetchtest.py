@@ -216,11 +216,19 @@ def _extract_shell_script(text: str) -> str:
 def _llm_shell_commands(entry, dest_dir: Path) -> str:
     """Ask the LLM for a shell script to download *entry* and execute it."""
     client = openai.OpenAI()
-    sample_path = _BASE_DIR / "sample_pdf_fetch.sh"
-    try:
-        sample_script = sample_path.read_text(encoding="utf-8")
-    except Exception:
-        sample_script = ""
+    ref_paths = [
+        _BASE_DIR / "sample_pdf_fetch.sh",
+        _BASE_DIR / "pdf_fetch_agingcell.sh",
+        _BASE_DIR / "pdf_fetch_aging.sh",
+        _BASE_DIR / "pdf_fetch_nataging.sh",
+        _BASE_DIR / "pdf_fetch_geroscience.sh",
+    ]
+    ref_scripts: list[str] = []
+    for p in ref_paths:
+        try:
+            ref_scripts.append(p.read_text(encoding="utf-8"))
+        except Exception:
+            ref_scripts.append("")
 
     print(f"Entry link:\n{entry.link}")
 
@@ -233,16 +241,17 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         },
     ]
 
-    if sample_script:
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    "Here is an example of a successful script you may use as a style reference:\n" +
-                    "```bash\n" + sample_script + "\n```"
-                ),
-            }
-        )
+    for script in ref_scripts:
+        if script:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Here is an example of a successful script you may use as a style reference:\n"
+                        + "```bash\n" + script + "\n```"
+                    ),
+                }
+            )
 
     messages.append(
         {
