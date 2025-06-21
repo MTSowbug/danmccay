@@ -1063,7 +1063,7 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
             resp = client.chat.completions.create(
                 model=SPEAKING_MODEL,
                 messages=messages,
-                max_completion_tokens=5000,
+                max_completion_tokens=14000,
             )
             cleaned_text = resp.choices[0].message.content
         except Exception as exc:
