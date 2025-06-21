@@ -889,3 +889,41 @@ def test_ocr_pdf(monkeypatch, tmp_path):
     with zipfile.ZipFile(archive) as zf:
         assert zf.namelist()
 
+
+def test_fetch_pdf_for_article(monkeypatch, tmp_path):
+    data = {
+        "message": {
+            "items": [
+                {
+                    "DOI": "10.1234/abc",
+                    "container-title": ["J"],
+                    "title": ["T"],
+                }
+            ]
+        }
+    }
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            import json
+
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
+
+    def fake_download(entry, dest):
+        p = dest / "x.pdf"
+        p.write_bytes(b"d")
+        return p
+
+    monkeypatch.setattr(fft, "_download_pdf", fake_download)
+
+    out = fft.fetch_pdf_for_article("T", dest_dir=tmp_path)
+    assert out == tmp_path / "x.pdf"
+
