@@ -1024,7 +1024,14 @@ def _scheduled_agingcell_worker():
     """Background task fetching PDFs for several journals each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
-    journals = ("Aging Cell", "Aging", "Nature Aging", "GeroScience", "Nature Communications")
+    journals = (
+        "Aging Cell",
+        "Aging",
+        "Nature Aging",
+        "GeroScience",
+        "Nature Communications",
+        "Nature Biotechnology",
+    )
     journal_map = {j.lower(): j for j in journals}
     while True:
         now = dt.datetime.now().time()
@@ -1718,6 +1725,15 @@ lambda chardata: (
                     download_journal_pdfs("Nature Communications", max_articles=1)
                 except Exception as exc:
                     print(f"Nature Communications fetch failed: {exc}")
+                continue
+            elif "mccay, fetch nature biotechnology" in response.lower():
+                response = send_command(tn, "emote searches for a Nature Biotechnology PDF.")
+                try:
+                    print("Fetching a Nature Biotechnology article PDF...")
+                    from feedfetchtest import download_journal_pdfs
+                    download_journal_pdfs("Nature Biotechnology", max_articles=1)
+                except Exception as exc:
+                    print(f"Nature Biotechnology fetch failed: {exc}")
                 continue
             elif "mccay, fetch geroscience" in response.lower():
                 response = send_command(tn, "emote searches for a GeroScience PDF.")
