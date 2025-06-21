@@ -1717,7 +1717,7 @@ lambda chardata: (
                 try:
                     print(f"[OCR] Received command: {response2}")
                     print("[OCR] Running OCR on PDF...")
-                    m = re.search(r"mccay, do ocr on (\S+)", response2, re.IGNORECASE)
+                    m = re.search(r"mccay, do ocr on (\S+)'", response2, re.IGNORECASE)
                     if m:
                         fname = m.group(1)
                         print(f"[OCR] Extracted filename: {fname}")
