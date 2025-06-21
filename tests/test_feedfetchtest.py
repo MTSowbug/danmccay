@@ -963,3 +963,40 @@ def test_fetch_pdf_for_doi(monkeypatch, tmp_path):
     out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
     assert out == tmp_path / "x.pdf"
 
+
+def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
+    data = {
+        "message": {
+            "title": ["T"],
+            "container-title": ["J"],
+        }
+    }
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            import json
+
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
+
+    def fake_download(entry, dest):
+        assert entry.title == "T"
+        assert entry.journal == "J"
+        assert entry.doi == "https://doi.org/10.1234/abc"
+        p = dest / "x.pdf"
+        p.write_bytes(b"d")
+        return p
+
+    monkeypatch.setattr(fft, "_download_pdf", fake_download)
+
+    for prefix in ["https://doi.org/", "doi.org/", "doi:"]:
+        out = fft.fetch_pdf_for_doi(prefix + "10.1234/abc", dest_dir=tmp_path)
+        assert out == tmp_path / "x.pdf"
+

@@ -744,8 +744,12 @@ def fetch_pdf_for_doi(doi: str, dest_dir: Path = _PDF_DIR) -> Path | None:
     """Try to fetch a PDF for *doi* using CrossRef metadata."""
 
     doi = doi.strip()
-    if doi.lower().startswith("doi:"):
-        doi = doi.split("doi:", 1)[1].strip()
+    lower = doi.lower()
+    for prefix in ("https://doi.org/", "http://doi.org/", "doi.org/", "doi:"):
+        if lower.startswith(prefix):
+            doi = doi[len(prefix):].strip()
+            lower = doi.lower()
+            break
 
     api_url = f"https://api.crossref.org/works/{urllib.parse.quote(doi)}"
     title = ""
