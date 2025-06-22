@@ -245,7 +245,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         if script:
             messages.append(
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": (
                         "Here is an example of a successful script you may use as a style reference:\n"
                         + "```bash\n" + script + "\n```"
@@ -276,7 +276,7 @@ Respond only with shell commands or a shell script that can be directly pasted i
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
-            max_completion_tokens=3000,
+            max_completion_tokens=5000,
         )
     except Exception as exc:
         print(f"LLM request failed: {exc}")
