@@ -960,8 +960,12 @@ def test_fetch_pdf_for_doi(monkeypatch, tmp_path):
 
     monkeypatch.setattr(fft, "_download_pdf", fake_download)
 
+    called = []
+    monkeypatch.setattr(fft, "ocr_pdf", lambda name, pdf_dir=tmp_path: called.append((name, pdf_dir)))
+
     out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
     assert out == tmp_path / "x.pdf"
+    assert called == [("x.pdf", tmp_path)]
 
 
 def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
@@ -995,8 +999,11 @@ def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
         return p
 
     monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    called = []
+    monkeypatch.setattr(fft, "ocr_pdf", lambda name, pdf_dir=tmp_path: called.append((name, pdf_dir)))
 
     for prefix in ["https://doi.org/", "doi.org/", "doi:"]:
         out = fft.fetch_pdf_for_doi(prefix + "10.1234/abc", dest_dir=tmp_path)
         assert out == tmp_path / "x.pdf"
+        assert called[-1] == ("x.pdf", tmp_path)
 
