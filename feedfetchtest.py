@@ -776,7 +776,14 @@ def fetch_pdf_for_doi(doi: str, dest_dir: Path = _PDF_DIR) -> Path | None:
     entry.journal = journal
     entry.doi = link
 
-    return _download_pdf(entry, dest_dir)
+    pdf_path = _download_pdf(entry, dest_dir)
+    if pdf_path is not None:
+        try:
+            ocr_pdf(pdf_path.name, dest_dir)
+        except Exception as exc:
+            print(f"OCR failed: {exc}")
+
+    return pdf_path
 
 
 def fetch_recent_articles(
