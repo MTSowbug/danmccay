@@ -624,6 +624,23 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
             except Exception as exc:
                 print(f"Aging script failed: {exc}")
 
+    if lower_journal == 'translational cancer research':
+        
+        print(f"Translational Cancer Research routine.")
+        doi = _extract_doi(entry)
+        if not doi:
+            doi = _extract_doi_from_url(getattr(entry, "link", ""))
+        print(f"Doi appears to be: {doi}")
+        if doi:
+            script = _BASE_DIR / "pdf_fetch_tcr.sh"
+            cmd = [str(script), doi]
+            print(f"Running Translational Cancer Research script: {' '.join(cmd)}")
+            try:
+                subprocess.run(cmd, cwd=dest_dir, check=True)
+                used_custom = True
+            except Exception as exc:
+                print(f"Translational Cancer Research script failed: {exc}")        
+
     if lower_journal == "aging cell":
 
         print(f"Aging Cell routine.")
