@@ -217,7 +217,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
     """Ask the LLM for a shell script to download *entry* and execute it."""
     client = openai.OpenAI()
     ref_paths = [
-        _BASE_DIR / "sample_pdf_fetch.sh",
+        #_BASE_DIR / "sample_pdf_fetch.sh",
         _BASE_DIR / "pdf_fetch_agingcell.sh",
         _BASE_DIR / "pdf_fetch_aging.sh",
         _BASE_DIR / "pdf_fetch_nataging.sh",
