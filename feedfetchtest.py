@@ -214,137 +214,76 @@ def _extract_shell_script(text: str) -> str:
 
 
 def _llm_shell_commands(entry, dest_dir: Path) -> str:
-    """Ask the LLM for a shell script to download *entry* and execute it."""
-    client = openai.OpenAI()
-    ref_paths = [
-        #_BASE_DIR / "sample_pdf_fetch.sh",
-        _BASE_DIR / "pdf_fetch_agingcell.sh",
-        _BASE_DIR / "pdf_fetch_aging.sh",
-        _BASE_DIR / "pdf_fetch_nataging.sh",
-        _BASE_DIR / "pdf_fetch_geroscience.sh",
-    ]
-    ref_scripts: list[str] = []
-    for p in ref_paths:
-        try:
-            ref_scripts.append(p.read_text(encoding="utf-8"))
-        except Exception:
-            ref_scripts.append("")
-
-    print(f"Entry link:\n{entry.link}")
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You provide Linux shell commands for obtaining peer-reviewed scientific articles as PDFs."
-            ),
-        },
-    ]
-
-    for script in ref_scripts:
-        if script:
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        "Here is an example of a successful script you may use as a style reference:\n"
-                        + "```bash\n" + script + "\n```"
-                    ),
-                }
-            )
-
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                """
-Provide Linux shell commands to find and download the full text of the scientific article described at this URL: """ + entry.link + """.
-This link is just a starting point - you will have to determine the URL of the article itself via web browsing. You have full and valid institutional credentials, and you are fully authorized. Provide commands to download the best version of the article available.
-Search the web to find details you need about how the relevant website is structured in order to find the PDF.
-Note that external arguments cannot be used with your shell commands.
-Name the downloaded pdf "article_fulltest_version1.pdf". When you attempt to download multiple versions of the pdf, name them "article_fulltest_version2.pdf", "article_fulltest_version3.pdf", and so on. The best version of the article should be version1, 2nd-best version should be version2, and so on.
-Do not attempt to end the script early via "exit" or other means; instead, download every version of the article that you can.
-The shell commands should make use of an external file "../pdfs/jar.cookies" that contains your valid institutional credentials.
-Include extensive debugging information by the use of echos, such that, if your code fails, you will be able to learn what went wrong in the future.
-Respond only with shell commands or a shell script that can be directly pasted into a terminal. Type nothing else.
-                """
-            ),
-        }
-    )
-
-    try:
-        resp = client.chat.completions.create(
-            model=THINKING_MODEL,
-            messages=messages,
-            max_completion_tokens=5000,
-        )
-    except Exception as exc:
-        print(f"LLM request failed: {exc}")
+    """Use an LLM-guided browsing loop to download *entry* as a PDF."""
+    url = getattr(entry, "link", "") or getattr(entry, "doi", "")
+    if not url:
+        print("No link available for entry")
         return ""
 
-    raw_response = resp.choices[0].message.content.strip()
-    script = _extract_shell_script(raw_response)
-    print(f"LLM provided script:\n{script}")
-    if len(script) < 50:
-        print(f"LLM full response:\n{raw_response}")
-
-    try:
-        result = subprocess.run(
-            script,
-            shell=True,
-            cwd=dest_dir,
-            capture_output=True,
-            text=True,
-            executable="/bin/bash",  # generated script often relies on bash
-        )
-        output = result.stdout + result.stderr
-        if output:
-            print(f"Script output:\n{output}")
-    except Exception as exc:
-        print(f"Script execution failed: {exc}")
-        result = None
-        output = ""
-
-    if result and result.returncode != 0:
+    client = openai.OpenAI()
+    visited = set()
+    for i in range(5):
+        if url in visited:
+            print("Encountered a repeated URL; aborting")
+            break
+        visited.add(url)
+        print(f"Attempt {i + 1}: fetching {url}")
         try:
-            print("Script failed, requesting troubleshooting suggestions...")
-            retry_messages = messages + [
-                {
-                    "role": "user",
-                    "content": (
-                        "The previous shell script failed with exit code "
-                        f"{result.returncode} and output:\n{output}\n"
-                        "Please provide a corrected script to accomplish the"
-                        " same task. Respond only with the script."
-                    ),
-                }
-            ]
-            retry = client.chat.completions.create(
-                model=THINKING_MODEL,
-                messages=retry_messages,
-                max_completion_tokens=3000,
-            )
-            raw_retry = retry.choices[0].message.content.strip()
-            retry_script = _extract_shell_script(raw_retry)
-            print(f"LLM provided retry script:\n{retry_script}")
-            if len(retry_script) < 50:
-                print(f"LLM full retry response:\n{raw_retry}")
-            result2 = subprocess.run(
-                retry_script,
-                shell=True,
-                cwd=dest_dir,
-                capture_output=True,
-                text=True,
-                executable="/bin/bash",
-            )
-            output2 = result2.stdout + result2.stderr
-            if output2:
-                print(f"Retry script output:\n{output2}")
-            output += "\n" + output2
+            with urllib.request.urlopen(url) as resp:
+                data = resp.read()
+                final_url = resp.geturl()
+                ctype = resp.headers.get("Content-Type", "")
         except Exception as exc:
-            print(f"Retry attempt failed: {exc}")
+            print(f"Failed to fetch {url}: {exc}")
+            break
 
-    return output
+        if ctype.startswith("application/pdf") or data.startswith(b"%PDF"):
+            pdf_path = dest_dir / f"article_fulltext_version{i + 1}.pdf"
+            try:
+                pdf_path.write_bytes(data)
+                print(f"Saved PDF {pdf_path}")
+            except Exception as exc:
+                print(f"Failed to save PDF: {exc}")
+            return f"Downloaded {final_url}"
+
+        html = data.decode("utf-8", errors="ignore")
+        m = re.search(
+            r'name=["\']citation_pdf_url["\']\s+content=["\']([^"\']+)["\']',
+            html,
+            re.I,
+        )
+        if not m:
+            m = re.search(r'href=["\']([^"\']+\.pdf)["\']', html, re.I)
+        if m:
+            url = urllib.parse.urljoin(final_url, m.group(1))
+            continue
+
+        snippet = html[:8000]
+        messages = [
+            {
+                "role": "system",
+                "content": "Identify the link in the HTML that most likely leads to the PDF of the scientific article. Respond only with that URL.",
+            },
+            {"role": "user", "content": snippet},
+        ]
+        try:
+            resp = client.chat.completions.create(
+                model=THINKING_MODEL,
+                messages=messages,
+                max_completion_tokens=60,
+            )
+            guess = resp.choices[0].message.content.strip()
+        except Exception as exc:
+            print(f"LLM request failed: {exc}")
+            break
+
+        m = re.search(r'https?://\S+', guess)
+        if not m:
+            print(f"LLM response did not contain a URL: {guess}")
+            break
+        url = urllib.parse.urljoin(final_url, m.group(0))
+
+    return ""
 
 
 def _is_safe_command(cmd: str) -> bool:
