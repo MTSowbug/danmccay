@@ -1692,7 +1692,7 @@ lambda chardata: (
                 except Exception as exc:
                     print(f"PDF fetch failed: {exc}")
                 continue
-            elif m := re.search(r"mccay, fetch specific article:\s*(.+)", response, re.IGNORECASE):
+            elif m := re.search(r"mccay, fetch specific article:\s*(.+)'", response, re.IGNORECASE):
                 doi = m.group(1).strip()
                 response = send_command(tn, "emote searches for the requested article.")
                 try:
