@@ -306,7 +306,7 @@ class NoState(State):
         self.is_done = False
 
     def enter(self, char):
-        print(f"{char.name} is entering no state.")
+        #print(f"{char.name} is entering no state.")
 
     def execute(self, char):
         #response = " "
