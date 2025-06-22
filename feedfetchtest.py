@@ -282,8 +282,11 @@ Respond only with shell commands or a shell script that can be directly pasted i
         print(f"LLM request failed: {exc}")
         return ""
 
-    script = _extract_shell_script(resp.choices[0].message.content.strip())
+    raw_response = resp.choices[0].message.content.strip()
+    script = _extract_shell_script(raw_response)
     print(f"LLM provided script:\n{script}")
+    if len(script) < 50:
+        print(f"LLM full response:\n{raw_response}")
 
     try:
         result = subprocess.run(
@@ -321,10 +324,11 @@ Respond only with shell commands or a shell script that can be directly pasted i
                 messages=retry_messages,
                 max_completion_tokens=3000,
             )
-            retry_script = _extract_shell_script(
-                retry.choices[0].message.content.strip()
-            )
+            raw_retry = retry.choices[0].message.content.strip()
+            retry_script = _extract_shell_script(raw_retry)
             print(f"LLM provided retry script:\n{retry_script}")
+            if len(retry_script) < 50:
+                print(f"LLM full retry response:\n{raw_retry}")
             result2 = subprocess.run(
                 retry_script,
                 shell=True,
