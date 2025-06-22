@@ -306,14 +306,14 @@ class NoState(State):
         self.is_done = False
 
     def enter(self, char):
-        pass
-        #print(f"{char.name} is entering no state.")
+        #pass
+        print(f"{char.name} is entering no state.")
 
     def execute(self, char):
         #response = " "
         response = False
         #If we're executing, then we're probably in combat.
-        print("Executing no state.")
+        #print("Executing no state.")
         if char.combatround > 0:
             char.change_state(CombatNeutralState())
         return response
