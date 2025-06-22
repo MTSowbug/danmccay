@@ -950,6 +950,10 @@ def test_fetch_pdf_for_doi(monkeypatch, tmp_path):
 
     monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
 
+    json_path = tmp_path / "a.json"
+    json_path.write_text("{}")
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+
     def fake_download(entry, dest):
         assert entry.title == "T"
         assert entry.journal == "J"
@@ -959,6 +963,7 @@ def test_fetch_pdf_for_doi(monkeypatch, tmp_path):
         return p
 
     monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    monkeypatch.setattr(fft, "_discover_doi", lambda *a, **k: "")
 
     called = []
     monkeypatch.setattr(fft, "ocr_pdf", lambda name, pdf_dir=tmp_path: called.append((name, pdf_dir)))
@@ -966,6 +971,12 @@ def test_fetch_pdf_for_doi(monkeypatch, tmp_path):
     out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
     assert out == tmp_path / "x.pdf"
     assert called == [("x.pdf", tmp_path)]
+
+    stored = json.loads(json_path.read_text())
+    assert list(stored) == ["https://doi.org/10.1234/abc"]
+    data = stored["https://doi.org/10.1234/abc"]
+    assert data["pdf"] == "x.pdf"
+    assert data["download_successful"] is True
 
 
 def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
@@ -990,6 +1001,10 @@ def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
 
     monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
 
+    json_path = tmp_path / "a.json"
+    json_path.write_text("{}")
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+
     def fake_download(entry, dest):
         assert entry.title == "T"
         assert entry.journal == "J"
@@ -999,6 +1014,8 @@ def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
         return p
 
     monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    monkeypatch.setattr(fft, "_discover_doi", lambda *a, **k: "")
+
     called = []
     monkeypatch.setattr(fft, "ocr_pdf", lambda name, pdf_dir=tmp_path: called.append((name, pdf_dir)))
 
@@ -1006,4 +1023,53 @@ def test_fetch_pdf_for_doi_prefixes(monkeypatch, tmp_path):
         out = fft.fetch_pdf_for_doi(prefix + "10.1234/abc", dest_dir=tmp_path)
         assert out == tmp_path / "x.pdf"
         assert called[-1] == ("x.pdf", tmp_path)
+
+    stored = json.loads(json_path.read_text())
+    assert list(stored) == ["https://doi.org/10.1234/abc"]
+    assert stored["https://doi.org/10.1234/abc"]["download_successful"] is True
+
+
+def test_fetch_pdf_for_doi_existing_item(monkeypatch, tmp_path):
+    data = {
+        "message": {
+            "title": ["T"],
+            "container-title": ["J"],
+        }
+    }
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            import json
+
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
+
+    json_path = tmp_path / "a.json"
+    existing = {"k": {"doi": "https://doi.org/10.1234/abc", "title": "Old"}}
+    json_path.write_text(json.dumps(existing))
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+
+    def fake_download(entry, dest):
+        p = dest / "x.pdf"
+        p.write_bytes(b"d")
+        return p
+
+    monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    monkeypatch.setattr(fft, "_discover_doi", lambda *a, **k: "")
+    monkeypatch.setattr(fft, "ocr_pdf", lambda *a, **k: None)
+
+    out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
+    assert out == tmp_path / "x.pdf"
+
+    stored = json.loads(json_path.read_text())
+    assert list(stored) == ["k"]
+    assert stored["k"]["pdf"] == "x.pdf"
+    assert stored["k"]["download_successful"] is True
 

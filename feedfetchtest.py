@@ -767,16 +767,51 @@ def fetch_pdf_for_doi(doi: str, dest_dir: Path = _PDF_DIR) -> Path | None:
 
     link = f"https://doi.org/{doi}"
 
+    # Load the article store and either locate or create a matching item
+    articles: Dict[str, dict] = {}
+    try:
+        with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
+            articles = json.load(fh)
+    except Exception:
+        articles = {}
+
+    article_key = None
+    article = None
+    for key, data in articles.items():
+        if data.get("doi") == link:
+            article_key = key
+            article = data
+            break
+
+    if article is None:
+        article_key = link
+        article = {
+            "title": title or doi,
+            "link": link,
+            "journal": journal,
+            "doi": link,
+        }
+        articles[article_key] = article
+
     class Entry:
         pass
 
     entry = Entry()
-    entry.title = title or doi
+    entry.title = article.get("title") or title or doi
     entry.link = link
-    entry.journal = journal
+    entry.journal = article.get("journal", journal)
     entry.doi = link
 
     pdf_path = _download_pdf(entry, dest_dir)
+    article["download_successful"] = pdf_path is not None
+    if pdf_path:
+        rel = pdf_path.relative_to(dest_dir)
+        article["pdf"] = str(rel)
+        doi_found = _discover_doi(entry, pdf_path)
+        if doi_found:
+            article["doi"] = doi_found
+    _save_articles(articles, _ARTICLES_JSON)
+
     if pdf_path is not None:
         try:
             ocr_pdf(pdf_path.name, dest_dir)
