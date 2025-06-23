@@ -271,17 +271,18 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             url = urllib.parse.urljoin(final_url, m.group(1))
             continue
 
-        snippet = html[:8000]
+        #snippet = html[:8000]
+        snippet = html
         messages = [
             {
                 "role": "system",
-                "content": "Identify the link in the HTML that most likely leads to the PDF of the scientific article. Respond only with that URL.",
+                "content": "Identify the link in this HTML that most likely leads to the PDF of the scientific article that this webpage is about. Respond only with that URL. Your URL *must* appear, verbatim, within the HTML listed below. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist.",
             },
             {"role": "user", "content": snippet},
         ]
         try:
             resp = client.chat.completions.create(
-                model=THINKING_MODEL,
+                model=SPEAKING_MODEL,
                 messages=messages,
                 max_completion_tokens=60,
             )
