@@ -332,7 +332,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         html = data.decode("utf-8", errors="ignore")
 
         snippet = _html_links_only(html)
-        print(f"Cleaned HTML: {snippet}")
+        #print(f"Cleaned HTML: {snippet}")
 
         info_parts = []
         title = getattr(entry, "title", "")
