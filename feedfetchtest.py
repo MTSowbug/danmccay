@@ -213,6 +213,39 @@ def _extract_shell_script(text: str) -> str:
     return text.strip()
 
 
+def _html_links_only(html: str) -> str:
+    """Return *html* reduced to a list of cleaned ``<a>`` tags."""
+
+    # Keep only anchor tags
+    html = re.sub(
+        r"(?is)(<a\b[^>]*>.*?</a>)|<[^>]+|[^<]+",
+        lambda m: m.group(1) or "",
+        html,
+    )
+
+    # Normalize href attribute
+    html = re.sub(
+        r"(?is)<a\b[^>]*?\bhref\s*=\s*(['\"]?)([^\s'\">]+)\1[^>]*>",
+        r'<a href="\2">',
+        html,
+    )
+
+    # Strip tags other than <a>
+    html = re.sub(r"(?is)<(?!/?a\b)[^>]+>", "", html)
+
+    # Drop non-http links
+    html = re.sub(
+        r"(?is)<a\b[^>]*\bhref\s*=\s*(['\"]?)(?!https?:\/\/)[^'\">\s]+\1[^>]*>.*?</a>\s*",
+        "",
+        html,
+    )
+
+    # Put each link on its own line
+    html = re.sub(r"</a>", "</a>\n", html)
+
+    return html.strip()
+
+
 def _llm_shell_commands(entry, dest_dir: Path) -> str:
     """Use an LLM-guided browsing loop to download *entry* as a PDF."""
     url = getattr(entry, "link", "") or getattr(entry, "doi", "")
@@ -271,8 +304,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             url = urllib.parse.urljoin(final_url, m.group(1))
             continue
 
-        #snippet = html[:8000]
-        snippet = html
+        snippet = _html_links_only(html)
         messages = [
             {
                 "role": "system",
