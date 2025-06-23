@@ -305,16 +305,17 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             continue
 
         snippet = _html_links_only(html)
+        print(f"Cleaned HTML: {snippet}")
         messages = [
             {
                 "role": "system",
-                "content": "Identify the link in this HTML that most likely leads to the PDF of the scientific article that this webpage is about. Respond only with that URL. Your URL *must* appear, verbatim, within the HTML listed below. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist.",
+                "content": "Identify the link in this HTML that most likely leads to the PDF of the scientific article that this webpage is about. Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist.",
             },
             {"role": "user", "content": snippet},
         ]
         try:
             resp = client.chat.completions.create(
-                model=SPEAKING_MODEL,
+                model=THINKING_MODEL,
                 messages=messages,
                 max_completion_tokens=60,
             )
