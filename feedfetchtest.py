@@ -365,7 +365,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         messages.append({"role": "user", "content": snippet})
         try:
             resp = client.chat.completions.create(
-                model=THINKING_MODEL,
+                model=SPEAKING_MODEL,
                 messages=messages,
                 max_completion_tokens=200,
             )
