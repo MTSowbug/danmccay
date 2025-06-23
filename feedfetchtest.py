@@ -307,15 +307,16 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             raw = _brotli.decompress(raw)
         return raw, ctype, final_url
 
-    visited = set()
+    visited: list[str] = []
     for i in range(5):
         if url in visited:
             print("Encountered a repeated URL; aborting")
             break
-        visited.add(url)
+        visited.append(url)
         print(f"Attempt {i + 1}: fetching {url}")
         try:
             data, ctype, final_url = _fetch(url)
+            visited[-1] = final_url
         except Exception as exc:
             print(f"Failed to fetch {url}: {exc}")
             break
@@ -352,12 +353,14 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             info_parts.append(f"Year: {year}")
         context = "\n".join(info_parts)
 
+        visited_text = "\n".join(visited)
         messages = [
             {
                 "role": "system",
                 "content": (
                     f"Identify the link in this HTML that most likely leads to the full-text PDF of the corresponding scientific article. "
                     f"You are currently viewing {final_url}. Do not pick a link that loads this same page again. "
+                    f"Avoid these previously visited links:\n{visited_text}\n" if visited_text else ""
                     "Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. "
                     "DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead "
                     "the user closer to the PDF. Some PDF links are misleading - try to avoid links to supplementary "
