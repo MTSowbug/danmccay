@@ -22,6 +22,14 @@ import json
 import re
 import urllib.parse
 import urllib.request
+import gzip
+import io
+from http import cookiejar
+
+try:
+    import brotli as _brotli
+except Exception:  # pragma: no cover - optional dependency may be missing
+    _brotli = None
 
 import openai
 from models import SPEAKING_MODEL, THINKING_MODEL
@@ -44,6 +52,19 @@ _ARTICLES_JSON = _PDF_DIR / "articles.json"
 _PDF_DIR.mkdir(parents=True, exist_ok=True)
 if not _ARTICLES_JSON.is_file():
     _ARTICLES_JSON.write_text("{}", encoding="utf-8")
+
+_HTTP_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.5",
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:126.0) "
+        "Gecko/20100101 Firefox/126.0"
+    ),
+    "Accept-Encoding": "gzip, deflate, br",
+}
 
 
 def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
@@ -267,6 +288,27 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         return ""
 
     client = openai.OpenAI()
+    cookie_jar = cookiejar.CookieJar()
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(cookie_jar),
+        urllib.request.HTTPRedirectHandler(),
+    )
+
+    def _fetch(u: str) -> tuple[bytes, str, str]:
+        req = urllib.request.Request(u, headers=_HTTP_HEADERS, method="GET")
+        with opener.open(req, timeout=30) as resp:
+            raw = resp.read()
+            ctype = resp.headers.get("Content-Type", "")
+            enc = resp.headers.get("Content-Encoding", "").lower()
+            final_url = resp.geturl()
+        if enc == "gzip":
+            raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+        elif enc in {"br", "brotli"} and _brotli is not None:
+            raw = _brotli.decompress(raw)
+        elif enc in {"br", "brotli"}:
+            print("Received Brotli data but brotli module not installed")
+        return raw, ctype, final_url
+
     visited = set()
     for i in range(5):
         if url in visited:
@@ -275,23 +317,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         visited.add(url)
         print(f"Attempt {i + 1}: fetching {url}")
         try:
-            headers = {
-                "Accept": (
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                    "image/avif,image/webp,*/*;q=0.8"
-                ),
-                "Accept-Language": "en-US,en;q=0.5",
-                "Referer": url,
-                "User-Agent": (
-                    "Mozilla/5.0 (X11; Linux x86_64; rv:126.0) "
-                    "Gecko/20100101 Firefox/126.0"
-                ),
-            }
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as resp:
-                data = resp.read()
-                final_url = resp.geturl()
-                ctype = resp.headers.get("Content-Type", "")
+            data, ctype, final_url = _fetch(url)
         except Exception as exc:
             print(f"Failed to fetch {url}: {exc}")
             break
