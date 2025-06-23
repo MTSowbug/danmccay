@@ -306,13 +306,36 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
 
         snippet = _html_links_only(html)
         print(f"Cleaned HTML: {snippet}")
+
+        info_parts = []
+        title = getattr(entry, "title", "")
+        if title:
+            info_parts.append(f"Title: {title}")
+        journal = getattr(entry, "journal", "")
+        if journal:
+            info_parts.append(f"Journal: {journal}")
+        doi = getattr(entry, "doi", "")
+        if doi:
+            info_parts.append(f"DOI: {doi}")
+        authors = getattr(entry, "authors", [])
+        if authors:
+            info_parts.append(f"Authors: {', '.join(authors)}")
+        year = getattr(entry, "year", None)
+        if year:
+            info_parts.append(f"Year: {year}")
+        context = "\n".join(info_parts)
+
         messages = [
             {
                 "role": "system",
-                "content": "Identify the link in this HTML that most likely leads to the PDF of the scientific article that this webpage is about. Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist.",
+                "content": (
+                    "Identify the link in this HTML that most likely leads to the PDF of the scientific article described below. Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist."
+                ),
             },
-            {"role": "user", "content": snippet},
         ]
+        if context:
+            messages.append({"role": "system", "content": f"Article information:\n{context}"})
+        messages.append({"role": "user", "content": snippet})
         try:
             resp = client.chat.completions.create(
                 model=THINKING_MODEL,
