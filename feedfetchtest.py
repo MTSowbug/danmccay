@@ -366,7 +366,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             {
                 "role": "system",
                 "content": (
-                    "Identify the link in this HTML that most likely leads to the PDF of the scientific article described below. Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. A direct PDF link may or may not exist."
+                    "Identify the link in this HTML that most likely leads to the full-text PDF of the corresponding scientific article. Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead the user closer to the PDF. Some PDF links are misleading - try to avoid links to supplementary information, citations, or unrelated papers."
                 ),
             },
         ]
