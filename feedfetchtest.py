@@ -376,6 +376,9 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
 
         m = re.search(r'https?://\S+', guess)
         if not m:
+            # Allow relative URLs as well
+            m = re.search(r'/\S+', guess)
+        if not m:
             print(f"LLM response did not contain a URL: {guess}")
             break
         url = urllib.parse.urljoin(final_url, m.group(0))
