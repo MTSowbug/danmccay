@@ -262,11 +262,11 @@ def _html_links_only(html: str) -> str:
     html = re.sub(r"(?is)<(?!/?a\b)[^>]+>", "", html)
 
     # Drop non-http links
-    html = re.sub(
-        r"(?is)<a\b[^>]*\bhref\s*=\s*(['\"]?)(?!https?:\/\/)[^'\">\s]+\1[^>]*>.*?</a>\s*",
-        "",
-        html,
-    )
+    #html = re.sub(
+    #    r"(?is)<a\b[^>]*\bhref\s*=\s*(['\"]?)(?!https?:\/\/)[^'\">\s]+\1[^>]*>.*?</a>\s*",
+    #    "",
+    #    html,
+    #)
 
     # Put each link on its own line
     html = re.sub(r"</a>", "</a>\n", html)
