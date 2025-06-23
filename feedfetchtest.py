@@ -26,10 +26,10 @@ import gzip
 import io
 from http import cookiejar
 
-try:
-    import brotli as _brotli
-except Exception:  # pragma: no cover - optional dependency may be missing
-    _brotli = None
+# Brotli is required for decompression of many modern websites.
+# Raise an explicit error if the module is missing so the user can
+# install it rather than silently continuing without support.
+import brotli as _brotli
 
 import openai
 from models import SPEAKING_MODEL, THINKING_MODEL
@@ -303,10 +303,8 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             final_url = resp.geturl()
         if enc == "gzip":
             raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
-        elif enc in {"br", "brotli"} and _brotli is not None:
-            raw = _brotli.decompress(raw)
         elif enc in {"br", "brotli"}:
-            print("Received Brotli data but brotli module not installed")
+            raw = _brotli.decompress(raw)
         return raw, ctype, final_url
 
     visited = set()
