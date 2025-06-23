@@ -1130,3 +1130,67 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     pdf = tmp_path / "article_fulltext_version2.pdf"
     assert pdf.exists()
 
+
+def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
+    html1 = '<a href="next.html">Next</a>'
+    html2 = '<a href="final.pdf">PDF</a>'
+
+    class FakeResp:
+        def __init__(self, data, ctype, url):
+            self._data = data
+            self.headers = {"Content-Type": ctype}
+            self._url = url
+
+        def read(self):
+            return self._data
+
+        def geturl(self):
+            return self._url
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+    class FakeOpener:
+        def __init__(self):
+            self.calls = 0
+
+        def open(self, req, timeout=30):
+            self.calls += 1
+            if self.calls == 1:
+                return FakeResp(html1.encode(), "text/html", "http://ex.com/page.html")
+            if self.calls == 2:
+                assert req.full_url == "http://ex.com/next.html"
+                return FakeResp(html2.encode(), "text/html", req.full_url)
+            if self.calls == 3:
+                assert req.full_url == "http://ex.com/final.pdf"
+                return FakeResp(b"%PDFDATA", "application/pdf", req.full_url)
+            raise AssertionError("too many calls")
+
+    monkeypatch.setattr(fft.urllib.request, "build_opener", lambda *a, **k: FakeOpener())
+
+    messages = []
+
+    def create(**k):
+        messages.append(k["messages"])
+        if len(messages) == 1:
+            return types.SimpleNamespace(choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="next.html"))])
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="final.pdf"))])
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=create)
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    class E:
+        link = "http://ex.com/page.html"
+
+    out = fft._llm_shell_commands(E(), tmp_path)
+    assert out == "Downloaded http://ex.com/final.pdf"
+    assert any("http://ex.com/page.html" in m.get("content", "") for m in messages[1])
+

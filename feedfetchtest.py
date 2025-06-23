@@ -307,18 +307,20 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             raw = _brotli.decompress(raw)
         return raw, ctype, final_url
 
-    visited = set()
+    visited = []
     for i in range(5):
         if url in visited:
             print("Encountered a repeated URL; aborting")
             break
-        visited.add(url)
         print(f"Attempt {i + 1}: fetching {url}")
         try:
             data, ctype, final_url = _fetch(url)
         except Exception as exc:
             print(f"Failed to fetch {url}: {exc}")
             break
+
+        if final_url not in visited:
+            visited.append(final_url)
 
         if ctype.startswith("application/pdf") or data.startswith(b"%PDF"):
             pdf_path = dest_dir / f"article_fulltext_version{i + 1}.pdf"
@@ -367,6 +369,15 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         ]
         if context:
             messages.append({"role": "system", "content": f"Article information:\n{context}"})
+
+        prior_links = [v for v in visited if v != final_url]
+        if prior_links:
+            msg = (
+                "These links have already been visited and NONE of them should be"
+                " revisited:\n" + "\n".join(prior_links)
+            )
+            messages.append({"role": "system", "content": msg})
+
         messages.append({"role": "user", "content": snippet})
         try:
             resp = client.chat.completions.create(
