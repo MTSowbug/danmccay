@@ -449,7 +449,7 @@ def _extract_doi_from_url(url: str) -> str:
                 flags=re.I | re.S,
             )
             print(f"Incoming opened URL")
-            print(f"Data: {data}")
+            #print(f"Data: {data}")
     except Exception as exc:
         print(f"Failed to fetch {url}: {exc}")
         return ""
