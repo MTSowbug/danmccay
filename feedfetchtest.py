@@ -375,17 +375,14 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             break
 
         m = re.search(r'https?://\S+', guess)
-        url_candidate = m.group(0) if m else None
-        if not url_candidate:
-            # Allow relative URLs like "./file.pdf" or "path/to/file"
-            for token in guess.split():
-                t = token.strip("'\"()<>,.")
-                if t.startswith('/') or t.startswith('./') or t.startswith('../') or '/' in t:
-                    url_candidate = t
-                    break
-        if not url_candidate:
-            print(f"LLM response did not contain a URL: {guess}")
-            break
+        if m:
+            url_candidate = m.group(0)
+        else:
+            pieces = guess.strip().split()
+            if not pieces:
+                print(f"LLM response did not contain a URL: {guess}")
+                break
+            url_candidate = pieces[0].strip("'\"()<>,.")
         url = urllib.parse.urljoin(final_url, url_candidate)
 
     return ""

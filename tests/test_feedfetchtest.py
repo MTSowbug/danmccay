@@ -1073,3 +1073,60 @@ def test_fetch_pdf_for_doi_existing_item(monkeypatch, tmp_path):
     assert stored["k"]["pdf"] == "x.pdf"
     assert stored["k"]["download_successful"] is True
 
+
+def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
+    html = '<a href="v15p6497.pdf">PDF</a>'
+
+    class FakeResp:
+        def __init__(self, data, ctype, url):
+            self._data = data
+            self.headers = {"Content-Type": ctype}
+            self._url = url
+
+        def read(self):
+            return self._data
+
+        def geturl(self):
+            return self._url
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+    class FakeOpener:
+        def __init__(self):
+            self.calls = 0
+
+        def open(self, req, timeout=30):
+            self.calls += 1
+            if self.calls == 1:
+                return FakeResp(html.encode(), "text/html", "http://example.com/dir/page.html")
+            if self.calls == 2:
+                assert req.full_url == "http://example.com/dir/v15p6497.pdf"
+                return FakeResp(b"%PDFDATA", "application/pdf", req.full_url)
+            raise AssertionError("too many calls")
+
+    monkeypatch.setattr(fft.urllib.request, "build_opener", lambda *a, **k: FakeOpener())
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **k: types.SimpleNamespace(
+                        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="v15p6497.pdf"))]
+                    )
+                )
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    class E:
+        link = "http://example.com/dir/page.html"
+
+    out = fft._llm_shell_commands(E(), tmp_path)
+    assert out == "Downloaded http://example.com/dir/v15p6497.pdf"
+    pdf = tmp_path / "article_fulltext_version2.pdf"
+    assert pdf.exists()
+
