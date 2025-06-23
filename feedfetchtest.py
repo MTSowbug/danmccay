@@ -317,7 +317,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             resp = client.chat.completions.create(
                 model=THINKING_MODEL,
                 messages=messages,
-                max_completion_tokens=60,
+                max_completion_tokens=200,
             )
             guess = resp.choices[0].message.content.strip()
         except Exception as exc:
