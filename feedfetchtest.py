@@ -1218,11 +1218,13 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
         subprocess.run(
             [
                 "pdftoppm",
+                "-q",
                 str(pdf_path),
                 str(Path(tmpdir) / "page"),
                 "-png",
             ],
             check=True,
+            stderr=subprocess.DEVNULL,
         )
 
         images = sorted(Path(tmpdir).glob("page-*.png"))
