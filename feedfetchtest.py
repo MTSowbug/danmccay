@@ -216,6 +216,13 @@ def _extract_shell_script(text: str) -> str:
 def _html_links_only(html: str) -> str:
     """Return *html* reduced to a list of cleaned ``<a>`` tags."""
 
+    timestamp = int(time.time() * 1000)
+    before_path = Path(f"/tmp/html_before_{timestamp}.html")
+    try:
+        before_path.write_text(html, encoding="utf-8")
+    except Exception as exc:
+        print(f"Could not write {before_path}: {exc}")
+
     # Keep only anchor tags
     html = re.sub(
         r"(?is)(<a\b[^>]*>.*?</a>)|<[^>]+|[^<]+",
@@ -242,6 +249,12 @@ def _html_links_only(html: str) -> str:
 
     # Put each link on its own line
     html = re.sub(r"</a>", "</a>\n", html)
+
+    after_path = Path(f"/tmp/html_after_{timestamp}.html")
+    try:
+        after_path.write_text(html, encoding="utf-8")
+    except Exception as exc:
+        print(f"Could not write {after_path}: {exc}")
 
     return html.strip()
 
