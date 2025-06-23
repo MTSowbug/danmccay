@@ -21,4 +21,5 @@ dependencies:
       - PyPDF2
       - fpdf2
       - fpdf
+      - brotli
       - pytest

@@ -22,7 +22,7 @@ This repository contains experimental tools for interacting with the *Cleft of D
    ```bash
    conda create -n mccay python=3.12 pandas numpy pyyaml jq pandoc
    conda activate mccay
-   pip install openai anthropic feedparser dill strip-ansi PyPDF2
+   pip install openai anthropic feedparser dill strip-ansi PyPDF2 brotli
    ```
 
    The environment includes the `jq` utility so shell commands in
