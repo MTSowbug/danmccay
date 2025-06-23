@@ -330,16 +330,6 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             return f"Downloaded {final_url}"
 
         html = data.decode("utf-8", errors="ignore")
-        m = re.search(
-            r'name=["\']citation_pdf_url["\']\s+content=["\']([^"\']+)["\']',
-            html,
-            re.I,
-        )
-        if not m:
-            m = re.search(r'href=["\']([^"\']+\.pdf)["\']', html, re.I)
-        if m:
-            url = urllib.parse.urljoin(final_url, m.group(1))
-            continue
 
         snippet = _html_links_only(html)
         print(f"Cleaned HTML: {snippet}")
