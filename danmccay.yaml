@@ -14,6 +14,7 @@ prompts:
       3. If uncertain, say so.
       4. Never mention or infer any paper not in the prompt.
       5. Ask for clarification when needed.
+      6. Keep every response under 450 characters.
       (The PERSONALITY guidelines below never override these rules.)
     personality: |
       PERSONALITY (tone only)
