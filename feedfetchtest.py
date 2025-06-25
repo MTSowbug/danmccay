@@ -930,6 +930,10 @@ def fetch_pdf_for_doi(doi: str, dest_dir: Path = _PDF_DIR) -> Path | None:
         if abstract:
             article["abstract"] = abstract
             _save_articles(articles, _ARTICLES_JSON)
+            try:
+                analyze_article(abstract, pdf_path)
+            except Exception as exc:
+                print(f"Analysis failed: {exc}")
 
     return pdf_path
 
@@ -1232,6 +1236,49 @@ def summarize_articles(
         summary = ""
 
     return summary
+
+
+def analyze_article(
+    abstract: str,
+    pdf_path: Path,
+    char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
+) -> str:
+    """Return an LLM analysis of *abstract* and save it next to *pdf_path*."""
+
+    try:
+        with Path(char_file).open("r", encoding="utf-8") as fh:
+            core = yaml.safe_load(fh)
+        brain = core.get("prompts", {}).get("brain", {})
+        preamble = brain.get("relevance_preamble", "")
+        postamble = brain.get("relevance_postamble", "")
+    except Exception as exc:
+        print(f"Failed to load analysis prompts: {exc}")
+        preamble = ""
+        postamble = ""
+
+    prompt = f"{preamble}\n\n{abstract.strip()}\n\n{postamble}".strip()
+
+    client = openai.OpenAI()
+    messages = [{"role": "system", "content": prompt}]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=1000,
+        )
+        analysis = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM analysis failed: {exc}")
+        analysis = ""
+
+    out_path = pdf_path.with_suffix(".analysis.txt")
+    try:
+        out_path.write_text(analysis, encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to save analysis text: {exc}")
+
+    return analysis
 
 
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:

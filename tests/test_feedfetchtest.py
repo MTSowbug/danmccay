@@ -1138,6 +1138,76 @@ def test_fetch_pdf_for_doi_extracts_abstract(monkeypatch, tmp_path):
     assert data["abstract"] == "This is the abstract."
 
 
+def test_fetch_pdf_for_doi_runs_analysis(monkeypatch, tmp_path):
+    data = {
+        "message": {"title": ["T"], "container-title": ["J"]}
+    }
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            import json
+
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
+
+    json_path = tmp_path / "a.json"
+    json_path.write_text("{}")
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+
+    def fake_download(entry, dest):
+        p = dest / "x.pdf"
+        p.write_bytes(b"d")
+        return p
+
+    monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    monkeypatch.setattr(fft, "_discover_doi", lambda *a, **k: "")
+
+    def fake_ocr(name, pdf_dir=tmp_path):
+        txt = pdf_dir / name.replace(".pdf", ".txt")
+        txt.write_text("Abstract\nThis is the abstract.\nIntro")
+        return txt
+
+    monkeypatch.setattr(fft, "ocr_pdf", fake_ocr)
+
+    class FakeResp1:
+        class choice:
+            def __init__(self, text):
+                self.message = types.SimpleNamespace(content=text)
+
+        def __init__(self, text):
+            self.choices = [self.choice(text)]
+
+    class FakeClient:
+        def __init__(self):
+            self.calls = []
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=self.create)
+            )
+
+        def create(self, **k):
+            self.calls.append(k)
+            if len(self.calls) == 1:
+                return FakeResp1("This is the abstract.")
+            return FakeResp1("ANALYSIS")
+
+    client = FakeClient()
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: client))
+
+    out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
+    assert out == tmp_path / "x.pdf"
+
+    analysis_path = tmp_path / "x.analysis.txt"
+    assert analysis_path.read_text() == "ANALYSIS"
+    assert client.calls[1]["model"] == fft.THINKING_MODEL
+
+
 def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     html = '<a href="v15p6497.pdf">PDF</a>'
 
