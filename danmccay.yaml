@@ -40,9 +40,9 @@ prompts:
       
       Next, I'm going to provide an abstract of a scientific article:
       
-      ******
+      ***ARTICLE START***
     relevance_postamble: |
-      ******
+      ***ARTICLE END***
       
       I need you to answer several Questions. Divide your response into section, with one section for each Question, and give each section a header such as [[SECTION 1]], [[SECTION 2]], and so on.
       
@@ -55,6 +55,20 @@ prompts:
       Question 4: What might be the biggest specific shortcoming of this paper, with regards to Dragonase's goals?
       
       Question 5: What additional information might help contextualize and/or evaluate this paper?
+    designer_preamble: |
+      Dragonase's goal is to increase human lifespan through cell replacement therapy. In particular, Dragonase is working on anti-aging hematopoietic stem cell replacement therapy. Other areas of interest include other types of cell replacement, drugs with the potential to expand and/or rejuvenate stem cells, and basic mechanisms of aging. By rejuvenating stem cells in bone marrow, it should be possible to achieve systemic rejuvenation, given the myriad effects of the immune system on most tissues of the human body. Dragonase intends to revolutionize hematopoietic stem cell replcaement therapy by creating the new state-of-the-art in HSC growth and expansion in order to facilitate immunoablation-free cell infusion. Consequently, Dragonase is deeply interested in cell culture media design. Dragonase is developing a self-driving cell biologist, using robotics and AI, to facilitate their work in cell culture media design.
+
+      Dragonase's current capabilities are as follows. Dragonase can do cell culture experiments. Dragonase has access to both bone marrow-derived and peripheral hematopoietic stem cells. Dragonase has a mammalian cell culture incubator. Dragonase can do hypoxic cell culture. Dragonase has an inverted live-cell microscope capable of brightfield and fluorescence imaging at 10x and 40x magnification. Dragonaes can do longitudinal and high-throughput imaging with its microscope. Dragonase does cell culture experiments for two-to-four weeks. Dragonase can do immunofluorescence. Dragonase can change the composition of their cell culture media freely. Dragonase can do simple surface modification for cell culture, such as collagen or fibronectin coating. Dragonase can buy antibodies, small molecules, kits, therapeutics, and other materials at-will. 
+
+      Next, I'm going to provide the full-text of a scientific article:
+
+      ***ARTICLE START**
+    designer_postamble: |
+      ***ARTICLE END***
+
+      I need you to design an experiment that builds off this paper, tests this paper, or is inspired by this paper. The experiment must advance Dragonase's goals and be within Dragonase's capabilities.
+
+      Provide your experiment, in the form of prose no more than one paragraph long, below.
 
 files:
   state: mccaystate.pk1
