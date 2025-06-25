@@ -890,11 +890,46 @@ def fetch_pdf_for_doi(doi: str, dest_dir: Path = _PDF_DIR) -> Path | None:
             article["doi"] = doi_found
     _save_articles(articles, _ARTICLES_JSON)
 
+    txt_path = None
     if pdf_path is not None:
         try:
-            ocr_pdf(pdf_path.name, dest_dir)
+            txt_path = ocr_pdf(pdf_path.name, dest_dir)
         except Exception as exc:
             print(f"OCR failed: {exc}")
+
+    if txt_path is not None:
+        abstract = ""
+        try:
+            raw_text = txt_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            print(f"Failed to read OCR text: {exc}")
+            raw_text = ""
+
+        if raw_text:
+            client = openai.OpenAI()
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Identify and return only the complete Abstract section from the following OCR extracted text."
+                    ),
+                },
+                {"role": "user", "content": raw_text[:20000]},
+            ]
+
+            try:
+                resp = client.chat.completions.create(
+                    model=SPEAKING_MODEL,
+                    messages=messages,
+                    max_completion_tokens=500,
+                )
+                abstract = resp.choices[0].message.content.strip()
+            except Exception as exc:
+                print(f"LLM abstract extraction failed: {exc}")
+
+        if abstract:
+            article["abstract"] = abstract
+            _save_articles(articles, _ARTICLES_JSON)
 
     return pdf_path
 

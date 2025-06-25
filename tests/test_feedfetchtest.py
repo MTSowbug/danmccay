@@ -1074,6 +1074,70 @@ def test_fetch_pdf_for_doi_existing_item(monkeypatch, tmp_path):
     assert stored["k"]["download_successful"] is True
 
 
+def test_fetch_pdf_for_doi_extracts_abstract(monkeypatch, tmp_path):
+    data = {
+        "message": {
+            "title": ["T"],
+            "container-title": ["J"],
+        }
+    }
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def read(self):
+            import json
+
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr(fft.urllib.request, "urlopen", lambda url: Resp())
+
+    json_path = tmp_path / "a.json"
+    json_path.write_text("{}")
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+
+    def fake_download(entry, dest):
+        p = dest / "x.pdf"
+        p.write_bytes(b"d")
+        return p
+
+    monkeypatch.setattr(fft, "_download_pdf", fake_download)
+    monkeypatch.setattr(fft, "_discover_doi", lambda *a, **k: "")
+
+    def fake_ocr(name, pdf_dir=tmp_path):
+        txt = pdf_dir / name.replace(".pdf", ".txt")
+        txt.write_text("Abstract\nThis is the abstract.\nIntro")
+        return txt
+
+    monkeypatch.setattr(fft, "ocr_pdf", fake_ocr)
+
+    class FakeRespLLM:
+        class choice:
+            def __init__(self):
+                self.message = types.SimpleNamespace(content="This is the abstract.")
+
+        choices = [choice()]
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=lambda **k: FakeRespLLM())
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    out = fft.fetch_pdf_for_doi("10.1234/abc", dest_dir=tmp_path)
+    assert out == tmp_path / "x.pdf"
+
+    stored = json.loads(json_path.read_text())
+    data = stored["https://doi.org/10.1234/abc"]
+    assert data["abstract"] == "This is the abstract."
+
+
 def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     html = '<a href="v15p6497.pdf">PDF</a>'
 
