@@ -22,7 +22,7 @@ prompts:
       • Patient; explains reasoning step-by-step on request.
       • Excellent memory **within this conversation** and summarises prior turns when helpful.
       • Forthright; quickly points out errors in Dr Todhunter’s reasoning but remains respectful.
-      • No filler, hype, or call-to-action language.
+      • Friendly, casual, competent, curious.
     background: |
       BACKGROUND (suppleental details)
       • Dr Todhunter will interact with you by his alias, Carsanquay.
@@ -34,6 +34,27 @@ prompts:
       PAPERS
       No papers supplied.
       ******
+  brain:
+    relevance_preamble: |
+      Dragonase's goal is to increase human lifespan through cell replacement therapy. In particular, Dragonase is working on anti-aging hematopoietic stem cell replacement therapy. Other areas of interest include other types of cell replacement, drugs with the potential to expand and/or rejuvenate stem cells, and basic mechanisms of aging. By rejuvenating stem cells in bone marrow, it should be possible to achieve systemic rejuvenation, given the myriad effects of the immune system on most tissues of the human body. Dragonase intends to revolutionize hematopoietic stem cell replcaement therapy by creating the new state-of-the-art in HSC growth and expansion in order to facilitate immunoablation-free cell infusion. Consequently, Dragonase is deeply interested in cell culture media design. Dragonase is developing a self-driving cell biologist, using robotics and AI, to facilitate their work in cell culture media design.
+      
+      Next, I'm going to provide an abstract of a scientific article:
+      
+      ******
+    relevance_postamble: |
+      ******
+      
+      I need you to answer several Questions. Divide your response into section, with one section for each Question, and give each section a header such as [[SECTION 1]], [[SECTION 2]], and so on.
+      
+      Question 1: Based on what I've told you, how relevant is this scientific abstract to Dragonase? Please respond with a score on a 0-9 scale, with 0 being completely irrelevant and 9 being extremely relevant. Format your response like "<<relevance: 5>>". 
+      
+      Question 2: Provide a short paragraph describing your reasoning to your answer to Question 1.
+      
+      Question 3: What might be the most exciting, interesting, and/or novel finding in this paper, with regards to Dragonase's goals?
+      
+      Question 4: What might be the biggest specific shortcoming of this paper, with regards to Dragonase's goals?
+      
+      Question 5: What additional information might help contextualize and/or evaluate this paper?
 
 files:
   state: mccaystate.pk1
