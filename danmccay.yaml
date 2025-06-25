@@ -69,6 +69,8 @@ prompts:
       I need you to design an experiment that builds off this paper, tests this paper, or is inspired by this paper. The experiment must advance Dragonase's goals and be within Dragonase's capabilities.
 
       Provide your experiment, in the form of prose no more than one paragraph long, below.
+    designer_explanation: |
+      Please explain the connection between this paper and your experiment.
 
 files:
   state: mccaystate.pk1
