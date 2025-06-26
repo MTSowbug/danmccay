@@ -1307,6 +1307,64 @@ def analyze_article(
     return analysis
 
 
+def design_experiment_for_doi(
+    doi: str,
+    pdf_dir: Path = _PDF_DIR,
+    char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
+) -> str:
+    """Return an LLM-designed experiment for the article identified by *doi*.
+
+    The function reads the OCR text from ``pdf_dir`` and uses the designer
+    prompts from *char_file* to generate a proposal. The output is saved next to
+    the text file with a ``.exp.txt`` suffix."""
+
+    fname = _doi_filename(doi)
+    txt_path = pdf_dir / f"{fname}.txt"
+    if not txt_path.is_file():
+        print(f"Text not found: {txt_path}")
+        return ""
+
+    try:
+        full_text = txt_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to read text: {exc}")
+        return ""
+
+    try:
+        with Path(char_file).open("r", encoding="utf-8") as fh:
+            core = yaml.safe_load(fh)
+        brain = core.get("prompts", {}).get("brain", {})
+        pre = brain.get("designer_preamble", "")
+        post = brain.get("designer_postamble", "")
+    except Exception as exc:
+        print(f"Failed to load designer prompts: {exc}")
+        pre = ""
+        post = ""
+
+    prompt = f"{pre}\n\n{full_text.strip()}\n\n{post}".strip()
+    client = openai.OpenAI()
+    messages = [{"role": "system", "content": prompt}]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=1000,
+        )
+        design = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM design failed: {exc}")
+        design = ""
+
+    out_path = pdf_dir / f"{fname}.exp.txt"
+    try:
+        out_path.write_text(design, encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to save design text: {exc}")
+
+    return design
+
+
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
     """Perform OCR on *pdf_name* and write ``.txt`` output.
 

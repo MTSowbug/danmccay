@@ -1341,3 +1341,42 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
     assert out == "Downloaded http://ex.com/final.pdf"
     assert any("http://ex.com/page.html" in m.get("content", "") for m in messages[1])
 
+
+def test_design_experiment_for_doi(monkeypatch, tmp_path):
+    txt = tmp_path / "doiorg10.1_x.txt"
+    txt.write_text("FULL", encoding="utf-8")
+
+    char_path = tmp_path / "c.yaml"
+    char_path.write_text(
+        "prompts:\n  brain:\n    designer_preamble: PRE\n    designer_postamble: POST\n"
+    )
+
+    calls = []
+
+    class FakeResp:
+        class choice:
+            def __init__(self, text):
+                self.message = types.SimpleNamespace(content=text)
+
+        def __init__(self, text):
+            self.choices = [self.choice(text)]
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=self.create)
+            )
+
+        def create(self, **k):
+            calls.append(k)
+            return FakeResp("DESIGN")
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    out = fft.design_experiment_for_doi("https://doi.org/10.1/x", pdf_dir=tmp_path, char_file=char_path)
+    assert out == "DESIGN"
+    assert calls[0]["model"] == fft.THINKING_MODEL
+    assert calls[0]["messages"][0]["content"] == "PRE\n\nFULL\n\nPOST"
+    exp_path = tmp_path / "doiorg10.1_x.exp.txt"
+    assert exp_path.read_text() == "DESIGN"
+

@@ -31,6 +31,7 @@ from feedfetchtest import (
     journals_with_pending_articles,
     fetch_pdf_for_article,
     fetch_pdf_for_doi,
+    design_experiment_for_doi,
 )
 import feedfetchtest as fft
 from pathlib import Path
@@ -1706,6 +1707,15 @@ lambda chardata: (
                     fetch_pdf_for_doi(doi)
                 except Exception as exc:
                     print(f"Specific article fetch failed: {exc}")
+                continue
+            elif m := re.search(r"mccay, design for specific article:\s*(.+)'", response, re.IGNORECASE):
+                doi = m.group(1).strip()
+                response = send_command(tn, "emote contemplates an experiment.")
+                try:
+                    print(f"Designing experiment for DOI '{doi}'...")
+                    design_experiment_for_doi(doi)
+                except Exception as exc:
+                    print(f"Experiment design failed: {exc}")
                 continue
             elif "mccay, fetch aging cell" in response.lower():
                 response = send_command(tn, "emote searches for an Aging Cell PDF.")
