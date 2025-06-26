@@ -336,6 +336,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
 
     monkeypatch.setattr(cam, 'pending_journal_articles', fake_pending)
     monkeypatch.setattr(cam, 'download_journal_pdfs', lambda j, max_articles=1: downloaded.append(j))
+    monkeypatch.setattr(cam, 'journals_with_pending_articles', lambda json_path=None: {'new journal': 'New Journal'})
 
     class FakeDateTime(dt.datetime):
         @classmethod
@@ -360,6 +361,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
         'GeroScience',
         'Nature Communications',
         'Nature Biotechnology',
+        'New Journal',
     ]
     assert checked == [
         'aging cell',
@@ -368,6 +370,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
         'geroscience',
         'nature communications',
         'nature biotechnology',
+        'new journal',
     ]
 
 
