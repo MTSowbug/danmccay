@@ -253,6 +253,24 @@ def test_fetch_specific_article_command(monkeypatch):
     assert calls == ['10.1/abc']
 
 
+def test_design_specific_article_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, 'design_experiment_for_doi', lambda d: calls.append(d))
+    monkeypatch.setattr(cam, 'send_command', lambda tn, c: 'resp')
+
+    response = 'McCay, design for specific article: 10.2/xyz'
+    m = re.search(r"mccay, design for specific article:\s*(.+)", response, re.IGNORECASE)
+    if m:
+        doi = m.group(1).strip()
+        cam.send_command(None, 'emote contemplates an experiment.')
+        try:
+            cam.design_experiment_for_doi(doi)
+        except Exception:
+            pass
+
+    assert calls == ['10.2/xyz']
+
+
 def test_fetch_nataging_command(monkeypatch):
     calls = []
     monkeypatch.setattr(
