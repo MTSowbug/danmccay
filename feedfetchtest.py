@@ -1156,6 +1156,32 @@ def pending_journal_articles(
     return False
 
 
+def journals_with_pending_articles(
+    json_path: Path = _ARTICLES_JSON,
+) -> dict[str, str]:
+    """Return a mapping of lower journal names to canonical names for pending articles."""
+    if not json_path.is_file():
+        return {}
+
+    try:
+        with json_path.open("r", encoding="utf-8") as fh:
+            articles = json.load(fh)
+    except Exception:
+        return {}
+
+    result: dict[str, str] = {}
+    for data in articles.values():
+        j = data.get("journal", "").strip()
+        if not j:
+            continue
+        if data.get("pdf") or data.get("download_successful") is True:
+            continue
+        lower = j.lower()
+        result.setdefault(lower, j)
+
+    return result
+
+
 def summarize_articles(
     json_path: Path = _ARTICLES_JSON,
     model: str = SPEAKING_MODEL,

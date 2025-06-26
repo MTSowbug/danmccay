@@ -822,6 +822,19 @@ def test_pending_journal_articles(monkeypatch, tmp_path):
     assert not fft.pending_journal_articles('Aging Cell', json_path=json_path)
 
 
+def test_journals_with_pending_articles(tmp_path):
+    data = {
+        '1': {'title': 't1', 'journal': 'Aging Cell'},
+        '2': {'title': 't2', 'journal': 'Done', 'download_successful': True},
+        '3': {'title': 't3', 'journal': 'Journal X'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    result = fft.journals_with_pending_articles(json_path=json_path)
+    assert result == {'aging cell': 'Aging Cell', 'journal x': 'Journal X'}
+
+
 def test_extract_doi_from_url_ignores_citation_reference(monkeypatch):
     html = (
         '<meta name="citation_reference" '

@@ -28,6 +28,7 @@ from feedfetchtest import (
     download_missing_pdfs,
     download_journal_pdfs,
     pending_journal_articles,
+    journals_with_pending_articles,
     fetch_pdf_for_article,
     fetch_pdf_for_doi,
 )
@@ -1039,6 +1040,10 @@ def _scheduled_agingcell_worker():
     while True:
         now = dt.datetime.now().time()
         if start <= now <= end:
+            extra = journals_with_pending_articles()
+            for k, v in extra.items():
+                journal_map.setdefault(k, v)
+
             for j_lower, name in journal_map.items():
                 if pending_journal_articles(j_lower):
                     try:
