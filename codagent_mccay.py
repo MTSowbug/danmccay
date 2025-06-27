@@ -1143,6 +1143,23 @@ def _scheduled_agingcell_worker():
             time.sleep(60)
 
 
+def _scheduled_experiment_worker():
+    """Design experiments for OCR articles each morning at 8 AM."""
+
+    last_date = None
+    while True:
+        now = dt.datetime.now()
+        if now.hour == 8 and (last_date is None or last_date != now.date()):
+            try:
+                fft.design_experiments_from_analyses()
+            except Exception as exc:
+                print(f"Scheduled design failed: {exc}")
+            last_date = now.date()
+            time.sleep(60)
+        else:
+            time.sleep(30)
+
+
 
 
 #Claude 3.5 Sonnet AI call
@@ -1461,6 +1478,7 @@ def main():
     # Start background fetcher threads
     threading.Thread(target=_scheduled_agingcell_worker, daemon=True).start()
     threading.Thread(target=_scheduled_schema_worker, daemon=True).start()
+    threading.Thread(target=_scheduled_experiment_worker, daemon=True).start()
 
     with open(personality_file, 'r') as file:
         core_personality = yaml.safe_load(file)

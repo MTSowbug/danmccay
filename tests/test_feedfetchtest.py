@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import feedfetchtest as fft
+import datetime as dt
 import importlib
 
 
@@ -1379,6 +1380,69 @@ def test_design_experiment_for_doi(monkeypatch, tmp_path):
     assert calls[0]["messages"][0]["content"] == "PRE\n\nFULL\n\nPOST"
     exp_path = tmp_path / "doiorg10.1_x.exp.txt"
     assert exp_path.read_text() == "DESIGN"
+
+
+def test_design_experiment_for_file(monkeypatch, tmp_path):
+    txt = tmp_path / "paper.txt"
+    txt.write_text("FULL", encoding="utf-8")
+
+    char_path = tmp_path / "c.yaml"
+    char_path.write_text(
+        "prompts:\n  brain:\n    designer_preamble: PRE\n    designer_postamble: POST\n"
+    )
+
+    calls = []
+
+    class FakeResp:
+        class choice:
+            def __init__(self, text):
+                self.message = types.SimpleNamespace(content=text)
+
+        def __init__(self, text):
+            self.choices = [self.choice(text)]
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=self.create)
+            )
+
+        def create(self, **k):
+            calls.append(k)
+            return FakeResp("DESIGN")
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    out = fft.design_experiment_for_file(txt, char_file=char_path)
+    assert out == "DESIGN"
+    assert calls[0]["model"] == fft.THINKING_MODEL
+    assert calls[0]["messages"][0]["content"] == "PRE\n\nFULL\n\nPOST"
+    exp_path = tmp_path / "paper.exp.txt"
+    assert exp_path.read_text() == "DESIGN"
+
+
+def test_design_experiments_from_analyses(monkeypatch, tmp_path):
+    txt = tmp_path / "paper.txt"
+    txt.write_text("TXT", encoding="utf-8")
+    analysis = tmp_path / "paper.analysis.txt"
+    analysis.write_text("analysis", encoding="utf-8")
+
+    ts = dt.datetime(2024, 1, 1, 7, 0).timestamp()
+    os.utime(analysis, (ts, ts))
+
+    calls = []
+    monkeypatch.setattr(fft, "design_experiment_for_file", lambda p, char_file=None: calls.append(p))
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 8, 0)
+
+    monkeypatch.setattr(fft._dt, "datetime", FakeDateTime)
+
+    out = fft.design_experiments_from_analyses(pdf_dir=tmp_path)
+    assert calls == [txt]
+    assert out == [txt]
 
 
 def test_schematize_experiment(monkeypatch, tmp_path):
