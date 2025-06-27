@@ -38,6 +38,7 @@ from pathlib import Path
 import multiprocessing
 import threading
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
+import urllib.request
 
 # Character prompt loaded from YAML at runtime
 CHAR_PROMPT = ""
@@ -1025,6 +1026,54 @@ def qtable_to_graph(dict):
     return graph
 
 
+def fetch_schema_file(
+    dest_path: Path = Path("schema.txt"), yaml_path: Path = Path("danmccay.yaml")
+) -> None:
+    """Download the schema file using credentials from *yaml_path*."""
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as fh:
+            conf = yaml.safe_load(fh) or {}
+        creds = conf.get("schema", {})
+        username = creds.get("username")
+        password = creds.get("pwd")
+        if not username or not password:
+            print("Schema credentials missing")
+            return
+    except Exception as exc:
+        print(f"Failed to load schema credentials: {exc}")
+        return
+
+    url = "https://stgeorge.quest/cells/trialsv2/schema.php"
+    try:
+        pmgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+        pmgr.add_password(None, url, username, password)
+        handler = urllib.request.HTTPBasicAuthHandler(pmgr)
+        opener = urllib.request.build_opener(handler)
+        with opener.open(url, timeout=30) as resp:
+            data = resp.read()
+        dest_path.write_bytes(data)
+        print(f"Saved schema to {dest_path}")
+    except Exception as exc:
+        print(f"Schema fetch failed: {exc}")
+
+
+def _scheduled_schema_worker():
+    """Background task fetching the schema each morning at 5:30 AM."""
+    last_date = None
+    while True:
+        now = dt.datetime.now()
+        if (
+            now.hour == 5
+            and now.minute >= 30
+            and (last_date is None or last_date != now.date())
+        ):
+            fetch_schema_file()
+            last_date = now.date()
+            time.sleep(60)
+        else:
+            time.sleep(30)
+
+
 def _scheduled_agingcell_worker():
     """Background task fetching PDFs for several journals each morning."""
     start = dt.time(6, 30)
@@ -1385,8 +1434,9 @@ def main():
 
     print(f"Mode set to: {system_mode}")
 
-    # Start background fetcher thread
+    # Start background fetcher threads
     threading.Thread(target=_scheduled_agingcell_worker, daemon=True).start()
+    threading.Thread(target=_scheduled_schema_worker, daemon=True).start()
 
     with open(personality_file, 'r') as file:
         core_personality = yaml.safe_load(file)
@@ -1770,6 +1820,13 @@ lambda chardata: (
                     download_journal_pdfs("GeroScience", max_articles=1)
                 except Exception as exc:
                     print(f"GeroScience fetch failed: {exc}")
+                continue
+            elif "mccay, fetch schema" in response.lower():
+                response = send_command(tn, "emote downloads the latest schema.")
+                try:
+                    fetch_schema_file()
+                except Exception as exc:
+                    print(f"Schema fetch failed: {exc}")
                 continue
             elif "mccay, do ocr on" in response.lower():
                 response2 = response

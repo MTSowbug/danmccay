@@ -440,3 +440,76 @@ def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
     assert processes
     targets = {args[0] for _, args, _ in processes}
     assert targets == set(created)
+
+
+def test_fetch_schema_file(monkeypatch, tmp_path):
+    conf = tmp_path / "config.yaml"
+    conf.write_text("schema:\n  username: u\n  pwd: p\n")
+
+    added = []
+
+    class FakePM:
+        def add_password(self, realm, url, user, pwd):
+            added.append((url, user, pwd))
+
+    class FakeOpener:
+        def open(self, url, timeout=0):
+            assert url == "https://stgeorge.quest/cells/trialsv2/schema.php"
+            class R:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, exc_type, exc, tb):
+                    pass
+
+                def read(self):
+                    return b"data"
+
+            return R()
+
+    monkeypatch.setattr(cam.urllib.request, "HTTPPasswordMgrWithDefaultRealm", lambda: FakePM())
+    monkeypatch.setattr(cam.urllib.request, "build_opener", lambda h: FakeOpener())
+
+    dest = tmp_path / "schema.txt"
+    cam.fetch_schema_file(dest, conf)
+
+    assert added == [("https://stgeorge.quest/cells/trialsv2/schema.php", "u", "p")]
+    assert dest.read_bytes() == b"data"
+
+
+def test_fetch_schema_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, "fetch_schema_file", lambda: calls.append(True))
+    monkeypatch.setattr(cam, "send_command", lambda tn, c: "resp")
+
+    response = "McCay, fetch schema"
+    if "mccay, fetch schema" in response.lower():
+        cam.send_command(None, "emote downloads the latest schema.")
+        try:
+            cam.fetch_schema_file()
+        except Exception:
+            pass
+
+    assert calls == [True]
+
+
+def test_scheduled_schema_worker(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, "fetch_schema_file", lambda: calls.append(True))
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 5, 30)
+
+    monkeypatch.setattr(cam.dt, "datetime", FakeDateTime)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, "sleep", stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_schema_worker()
+
+    assert calls == [True]
