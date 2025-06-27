@@ -623,3 +623,27 @@ def test_scheduled_schema_worker(monkeypatch):
         cam._scheduled_schema_worker()
 
     assert calls == [True]
+
+
+def test_scheduled_experiment_worker(monkeypatch, tmp_path):
+    calls = []
+
+    monkeypatch.setattr(cam.fft, "_PDF_DIR", tmp_path)
+    monkeypatch.setattr(cam.fft, "design_experiments_from_analyses", lambda: calls.append(True))
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 8, 0)
+
+    monkeypatch.setattr(cam.dt, "datetime", FakeDateTime)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, "sleep", stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_experiment_worker()
+
+    assert calls == [True]

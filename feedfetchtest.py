@@ -1365,6 +1365,91 @@ def design_experiment_for_doi(
     return design
 
 
+def design_experiment_for_file(
+    txt_file: str | Path,
+    char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
+) -> str:
+    """Return an LLM-designed experiment for the OCR text in *txt_file*.
+
+    The function mirrors :func:`design_experiment_for_doi` but operates on a
+    direct text file path. The resulting design is saved next to the text file
+    with a ``.exp.txt`` suffix."""
+
+    txt_path = Path(txt_file)
+    if not txt_path.is_file():
+        print(f"Text not found: {txt_path}")
+        return ""
+
+    try:
+        full_text = txt_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to read text: {exc}")
+        return ""
+
+    try:
+        with Path(char_file).open("r", encoding="utf-8") as fh:
+            core = yaml.safe_load(fh)
+        brain = core.get("prompts", {}).get("brain", {})
+        pre = brain.get("designer_preamble", "")
+        post = brain.get("designer_postamble", "")
+    except Exception as exc:
+        print(f"Failed to load designer prompts: {exc}")
+        pre = ""
+        post = ""
+
+    prompt = f"{pre}\n\n{full_text.strip()}\n\n{post}".strip()
+    client = openai.OpenAI()
+    messages = [{"role": "system", "content": prompt}]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=1000,
+        )
+        design = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM design failed: {exc}")
+        design = ""
+
+    out_path = txt_path.with_suffix(".exp.txt")
+    try:
+        out_path.write_text(design, encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to save design text: {exc}")
+
+    return design
+
+
+def design_experiments_from_analyses(
+    pdf_dir: Path = _PDF_DIR,
+    char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
+) -> list[Path]:
+    """Design experiments for all analyses created today in *pdf_dir*.
+
+    Returns a list of processed text file paths."""
+
+    today = _dt.datetime.now().date()
+    processed: list[Path] = []
+    for analysis in Path(pdf_dir).glob("*.analysis.txt"):
+        try:
+            mtime = _dt.datetime.fromtimestamp(analysis.stat().st_mtime).date()
+        except Exception:
+            continue
+        if mtime != today:
+            continue
+
+        txt_path = analysis.with_name(analysis.name.replace(".analysis.txt", ".txt"))
+        exp_path = txt_path.with_suffix(".exp.txt")
+        if not txt_path.is_file() or exp_path.is_file():
+            continue
+
+        design_experiment_for_file(txt_path, char_file=char_file)
+        processed.append(txt_path)
+
+    return processed
+
+
 def schematize_experiment(
     exp_file: str | Path,
     schema_file: Path = Path("schema.txt"),
