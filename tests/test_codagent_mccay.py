@@ -406,6 +406,11 @@ def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
 
         def start(self):
             processes.append((self.target, self.args, self.kwargs))
+            if self.target:
+                self.target(*self.args, **self.kwargs)
+
+        def join(self):
+            pass
 
     monkeypatch.setattr(cam, 'download_missing_pdfs', fake_download)
     monkeypatch.setattr(cam.multiprocessing, 'Process', FakeProcess)
@@ -453,6 +458,11 @@ def test_scheduled_agingcell_worker_processes_existing(monkeypatch, tmp_path):
 
         def start(self):
             processes.append((self.target, self.args, self.kwargs))
+            if self.target:
+                self.target(*self.args, **self.kwargs)
+
+        def join(self):
+            pass
 
     monkeypatch.setattr(cam, "download_missing_pdfs", fake_download)
     monkeypatch.setattr(cam.multiprocessing, "Process", FakeProcess)
@@ -476,6 +486,70 @@ def test_scheduled_agingcell_worker_processes_existing(monkeypatch, tmp_path):
 
     filenames = {args[0] for _, args, _ in processes}
     assert filenames == {"old.pdf", "new1.pdf", "new2.pdf"}
+
+
+def test_scheduled_agingcell_worker_runs_analysis(monkeypatch, tmp_path):
+    """OCR results should trigger article analysis."""
+    analyses = []
+
+    monkeypatch.setattr(cam.fft, "_PDF_DIR", tmp_path)
+
+    (tmp_path / "article.pdf").write_bytes(b"d")
+
+    def fake_download(max_articles=1):
+        pass
+
+    def fake_ocr(name, pdf_dir):
+        txt = pdf_dir / name.replace(".pdf", ".txt")
+        txt.write_text("Abstract\nThis is the abstract.\nIntro")
+        return txt
+
+    class FakeProcess:
+        def __init__(self, target=None, args=(), kwargs=None):
+            self.target = target
+            self.args = args
+            self.kwargs = kwargs or {}
+
+        def start(self):
+            if self.target:
+                self.target(*self.args, **self.kwargs)
+
+        def join(self):
+            pass
+
+    class FakeResp:
+        def __init__(self, text):
+            self.choices = [types.SimpleNamespace(message=types.SimpleNamespace(content=text))]
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **k: FakeResp("ABSTRACT")))
+
+    monkeypatch.setattr(cam, "download_missing_pdfs", fake_download)
+    monkeypatch.setattr(cam.multiprocessing, "Process", FakeProcess)
+    monkeypatch.setattr(cam.fft, "ocr_pdf", fake_ocr)
+    monkeypatch.setattr(cam, "OpenAI", lambda: FakeClient())
+    monkeypatch.setattr(cam.fft, "analyze_article", lambda a, p: analyses.append((a, p)))
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 6, 45)
+
+    monkeypatch.setattr(cam.dt, "datetime", FakeDateTime)
+    monkeypatch.setattr(cam.random, "uniform", lambda a, b: 0)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, "sleep", stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_agingcell_worker()
+
+    assert analyses
+    assert analyses[0][1] == tmp_path / "article.pdf"
+    assert analyses[0][0] == "ABSTRACT"
 
 
 def test_fetch_schema_file(monkeypatch, tmp_path):
