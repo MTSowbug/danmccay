@@ -1380,3 +1380,40 @@ def test_design_experiment_for_doi(monkeypatch, tmp_path):
     exp_path = tmp_path / "doiorg10.1_x.exp.txt"
     assert exp_path.read_text() == "DESIGN"
 
+
+def test_schematize_experiment(monkeypatch, tmp_path):
+    exp = tmp_path / "foo.exp.txt"
+    exp.write_text("PROSE", encoding="utf-8")
+    schema = tmp_path / "schema.txt"
+    schema.write_text("SCHEMA", encoding="utf-8")
+
+    calls = []
+
+    class FakeResp:
+        class choice:
+            def __init__(self, text):
+                self.message = types.SimpleNamespace(content=text)
+
+        def __init__(self, text):
+            self.choices = [self.choice(text)]
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=self.create)
+            )
+
+        def create(self, **k):
+            calls.append(k)
+            return FakeResp("ROW")
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    out = fft.schematize_experiment(exp, schema)
+    assert out == "ROW"
+    assert calls[0]["model"] == fft.THINKING_MODEL
+    assert "SCHEMA" in calls[0]["messages"][0]["content"]
+    assert calls[0]["messages"][1]["content"] == "PROSE"
+    schema_out = tmp_path / "foo.schema.txt"
+    assert schema_out.read_text() == "ROW"
+

@@ -1365,6 +1365,66 @@ def design_experiment_for_doi(
     return design
 
 
+def schematize_experiment(
+    exp_file: str | Path,
+    schema_file: Path = Path("schema.txt"),
+) -> str:
+    """Convert a prose experiment into a schema-based SQL row.
+
+    The returned text is also saved next to *exp_file* with a ``.schema.txt``
+    suffix."""
+
+    exp_path = Path(exp_file)
+    try:
+        exp_text = exp_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to read experiment text: {exc}")
+        return ""
+
+    schema_text = ""
+    if Path(schema_file).is_file():
+        try:
+            schema_text = Path(schema_file).read_text(encoding="utf-8")
+        except Exception as exc:
+            print(f"Failed to read schema file: {exc}")
+
+    prompt = (
+        "Here is the SQL table schema:\n" + schema_text.strip() +
+        "\n\nConvert the following experiment description into a row. "
+        "Provide column=value pairs and suggest any missing columns if needed."\
+    )
+
+    client = openai.OpenAI()
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": exp_text.strip()},
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=THINKING_MODEL,
+            messages=messages,
+            max_completion_tokens=1000,
+        )
+        row = resp.choices[0].message.content
+    except Exception as exc:
+        print(f"LLM schematization failed: {exc}")
+        row = ""
+
+    out_path = exp_path
+    if out_path.suffix == ".txt":
+        out_path = out_path.with_suffix("")
+    if out_path.suffix == ".exp":
+        out_path = out_path.with_suffix("")
+    out_path = out_path.with_suffix(".schema.txt")
+    try:
+        out_path.write_text(row, encoding="utf-8")
+    except Exception as exc:
+        print(f"Failed to save schema text: {exc}")
+
+    return row
+
+
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
     """Perform OCR on *pdf_name* and write ``.txt`` output.
 
