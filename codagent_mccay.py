@@ -1087,8 +1087,8 @@ def _scheduled_agingcell_worker():
                 before = set(pdf_dir.glob("*.pdf"))
                 download_missing_pdfs(max_articles=1)
                 after = set(pdf_dir.glob("*.pdf"))
-                new_pdfs = after - before
-                for pdf in new_pdfs:
+                pending = {p for p in after if not p.with_suffix(".txt").exists()}
+                for pdf in pending:
                     try:
                         proc = multiprocessing.Process(
                             target=fft.ocr_pdf,
