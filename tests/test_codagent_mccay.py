@@ -432,6 +432,52 @@ def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
     assert targets == set(created)
 
 
+def test_scheduled_agingcell_worker_processes_existing(monkeypatch, tmp_path):
+    """Existing PDFs without OCR should be processed along with new ones."""
+    processes = []
+
+    monkeypatch.setattr(cam.fft, "_PDF_DIR", tmp_path)
+
+    # Pre-existing PDF lacking OCR output
+    (tmp_path / "old.pdf").write_bytes(b"d")
+
+    def fake_download(max_articles=1):
+        (tmp_path / "new1.pdf").write_bytes(b"d")
+        (tmp_path / "new2.pdf").write_bytes(b"d")
+
+    class FakeProcess:
+        def __init__(self, target=None, args=(), kwargs=None):
+            self.target = target
+            self.args = args
+            self.kwargs = kwargs or {}
+
+        def start(self):
+            processes.append((self.target, self.args, self.kwargs))
+
+    monkeypatch.setattr(cam, "download_missing_pdfs", fake_download)
+    monkeypatch.setattr(cam.multiprocessing, "Process", FakeProcess)
+    monkeypatch.setattr(cam.fft, "ocr_pdf", lambda *a, **k: None)
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 6, 45)
+
+    monkeypatch.setattr(cam.dt, "datetime", FakeDateTime)
+    monkeypatch.setattr(cam.random, "uniform", lambda a, b: 0)
+
+    def stop(_):
+        raise StopIteration
+
+    monkeypatch.setattr(cam.time, "sleep", stop)
+
+    with pytest.raises(StopIteration):
+        cam._scheduled_agingcell_worker()
+
+    filenames = {args[0] for _, args, _ in processes}
+    assert filenames == {"old.pdf", "new1.pdf", "new2.pdf"}
+
+
 def test_fetch_schema_file(monkeypatch, tmp_path):
     conf = tmp_path / "config.yaml"
     conf.write_text("schema:\n  username: u\n  pwd: p\n")
