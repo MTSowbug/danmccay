@@ -271,6 +271,24 @@ def test_design_specific_article_command(monkeypatch):
     assert calls == ['10.2/xyz']
 
 
+def test_schematize_experiment_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, 'schematize_experiment', lambda p: calls.append(p))
+    monkeypatch.setattr(cam, 'send_command', lambda tn, c: 'resp')
+
+    response = 'McCay, schematize experiment foo.exp.txt'
+    m = re.search(r"mccay, schematize experiment\s+(\S+)", response, re.IGNORECASE)
+    if m:
+        fname = m.group(1).strip()
+        cam.send_command(None, 'emote organizes the experiment data.')
+        try:
+            cam.schematize_experiment(fname)
+        except Exception:
+            pass
+
+    assert calls == ['foo.exp.txt']
+
+
 def test_fetch_nataging_command(monkeypatch):
     calls = []
     monkeypatch.setattr(

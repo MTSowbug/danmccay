@@ -32,6 +32,7 @@ from feedfetchtest import (
     fetch_pdf_for_article,
     fetch_pdf_for_doi,
     design_experiment_for_doi,
+    schematize_experiment,
 )
 import feedfetchtest as fft
 from pathlib import Path
@@ -1766,6 +1767,15 @@ lambda chardata: (
                     design_experiment_for_doi(doi)
                 except Exception as exc:
                     print(f"Experiment design failed: {exc}")
+                continue
+            elif m := re.search(r"mccay, schematize experiment\s+(\S+)", response, re.IGNORECASE):
+                fname = m.group(1).strip()
+                response = send_command(tn, "emote organizes the experiment data.")
+                try:
+                    print(f"Schematizing experiment '{fname}'...")
+                    schematize_experiment(fname)
+                except Exception as exc:
+                    print(f"Experiment schematization failed: {exc}")
                 continue
             elif "mccay, fetch aging cell" in response.lower():
                 response = send_command(tn, "emote searches for an Aging Cell PDF.")
