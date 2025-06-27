@@ -1076,45 +1076,30 @@ def _scheduled_schema_worker():
 
 
 def _scheduled_agingcell_worker():
-    """Background task fetching PDFs for several journals each morning."""
+    """Background task fetching PDFs for pending articles each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
-    journals = (
-        "Aging Cell",
-        "Aging",
-        "Nature Aging",
-        "GeroScience",
-        "Nature Communications",
-        "Nature Biotechnology",
-    )
-    journal_map = {j.lower(): j for j in journals}
     while True:
         now = dt.datetime.now().time()
         if start <= now <= end:
-            extra = journals_with_pending_articles()
-            for k, v in extra.items():
-                journal_map.setdefault(k, v)
-
-            for j_lower, name in journal_map.items():
-                if pending_journal_articles(j_lower):
+            try:
+                pdf_dir = Path(fft._PDF_DIR)
+                before = set(pdf_dir.glob("*.pdf"))
+                download_missing_pdfs(max_articles=1)
+                after = set(pdf_dir.glob("*.pdf"))
+                new_pdfs = after - before
+                for pdf in new_pdfs:
                     try:
-                        pdf_dir = Path(fft._PDF_DIR)
-                        before = set(pdf_dir.glob("*.pdf"))
-                        download_journal_pdfs(name, max_articles=1)
-                        after = set(pdf_dir.glob("*.pdf"))
-                        new_pdfs = after - before
-                        for pdf in new_pdfs:
-                            try:
-                                proc = multiprocessing.Process(
-                                    target=fft.ocr_pdf,
-                                    args=(pdf.name, pdf_dir),
-                                )
-                                proc.daemon = True
-                                proc.start()
-                            except Exception as exc:
-                                print(f"Scheduled OCR failed: {exc}")
+                        proc = multiprocessing.Process(
+                            target=fft.ocr_pdf,
+                            args=(pdf.name, pdf_dir),
+                        )
+                        proc.daemon = True
+                        proc.start()
                     except Exception as exc:
-                        print(f"Scheduled {name} fetch failed: {exc}")
+                        print(f"Scheduled OCR failed: {exc}")
+            except Exception as exc:
+                print(f"Scheduled fetch failed: {exc}")
             time.sleep(random.uniform(240, 360))
         else:
             time.sleep(60)

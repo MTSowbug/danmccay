@@ -362,17 +362,10 @@ def test_check_geroscience_command(monkeypatch):
 
 
 def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
-    """Ensure scheduled worker downloads PDFs for all journals."""
-    downloaded = []
-    checked = []
+    """Ensure scheduled worker downloads a pending article."""
+    calls = []
 
-    def fake_pending(j):
-        checked.append(j)
-        return True
-
-    monkeypatch.setattr(cam, 'pending_journal_articles', fake_pending)
-    monkeypatch.setattr(cam, 'download_journal_pdfs', lambda j, max_articles=1: downloaded.append(j))
-    monkeypatch.setattr(cam, 'journals_with_pending_articles', lambda json_path=None: {'new journal': 'New Journal'})
+    monkeypatch.setattr(cam, 'download_missing_pdfs', lambda max_articles=1: calls.append(max_articles))
 
     class FakeDateTime(dt.datetime):
         @classmethod
@@ -390,24 +383,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
     with pytest.raises(StopIteration):
         cam._scheduled_agingcell_worker()
 
-    assert downloaded == [
-        'Aging Cell',
-        'Aging',
-        'Nature Aging',
-        'GeroScience',
-        'Nature Communications',
-        'Nature Biotechnology',
-        'New Journal',
-    ]
-    assert checked == [
-        'aging cell',
-        'aging',
-        'nature aging',
-        'geroscience',
-        'nature communications',
-        'nature biotechnology',
-        'new journal',
-    ]
+    assert calls == [1]
 
 
 def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
@@ -417,11 +393,8 @@ def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cam.fft, '_PDF_DIR', tmp_path)
 
-    def fake_pending(j):
-        return True
-
-    def fake_download(j, max_articles=1):
-        p = tmp_path / f"{j.replace(' ', '')}.pdf"
+    def fake_download(max_articles=1):
+        p = tmp_path / "new.pdf"
         p.write_bytes(b'd')
         created.append(p.name)
 
@@ -434,8 +407,7 @@ def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
         def start(self):
             processes.append((self.target, self.args, self.kwargs))
 
-    monkeypatch.setattr(cam, 'pending_journal_articles', fake_pending)
-    monkeypatch.setattr(cam, 'download_journal_pdfs', fake_download)
+    monkeypatch.setattr(cam, 'download_missing_pdfs', fake_download)
     monkeypatch.setattr(cam.multiprocessing, 'Process', FakeProcess)
     monkeypatch.setattr(cam.fft, 'ocr_pdf', lambda *a, **k: None)
 
