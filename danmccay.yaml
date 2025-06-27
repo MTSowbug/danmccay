@@ -2,9 +2,6 @@
 playerfile:
   name: danmccay
   pwd: 13helicases
-schemafile:
-  name: danmccay
-  pwd: 13helicases
 
 schema:
   username: danmccay
