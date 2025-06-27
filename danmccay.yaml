@@ -2,6 +2,9 @@
 playerfile:
   name: danmccay
   pwd: 13helicases
+schemafile:
+  name:danmccay
+  pwd: 13helicases
 
 prompts:
   char:
