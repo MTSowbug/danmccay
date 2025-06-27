@@ -6,6 +6,10 @@ schemafile:
   name: danmccay
   pwd: 13helicases
 
+schema:
+  username: danmccay
+  pwd: 13helicases
+
 prompts:
   char:
     system: |
