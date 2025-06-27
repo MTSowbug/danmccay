@@ -1404,7 +1404,7 @@ def schematize_experiment(
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
-            max_completion_tokens=1000,
+            max_completion_tokens=20000,
         )
         row = resp.choices[0].message.content
     except Exception as exc:
