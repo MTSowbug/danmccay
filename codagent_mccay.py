@@ -1096,6 +1096,44 @@ def _scheduled_agingcell_worker():
                         )
                         proc.daemon = True
                         proc.start()
+                        proc.join()
+
+                        txt_path = pdf.with_suffix(".txt")
+                        if txt_path.exists() and not pdf.with_suffix(".analysis.txt").exists():
+                            abstract = ""
+                            try:
+                                raw_text = txt_path.read_text(encoding="utf-8")
+                            except Exception as exc:
+                                print(f"Failed to read OCR text: {exc}")
+                                raw_text = ""
+
+                            if raw_text:
+                                client = OpenAI()
+                                messages = [
+                                    {
+                                        "role": "system",
+                                        "content": (
+                                            "Identify and return only the complete Abstract section from the following OCR extracted text."
+                                        ),
+                                    },
+                                    {"role": "user", "content": raw_text[:20000]},
+                                ]
+
+                                try:
+                                    resp = client.chat.completions.create(
+                                        model=SPEAKING_MODEL,
+                                        messages=messages,
+                                        max_completion_tokens=500,
+                                    )
+                                    abstract = resp.choices[0].message.content.strip()
+                                except Exception as exc:
+                                    print(f"LLM abstract extraction failed: {exc}")
+
+                            if abstract:
+                                try:
+                                    fft.analyze_article(abstract, pdf)
+                                except Exception as exc:
+                                    print(f"Analysis failed: {exc}")
                     except Exception as exc:
                         print(f"Scheduled OCR failed: {exc}")
             except Exception as exc:
