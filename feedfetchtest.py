@@ -1291,7 +1291,7 @@ def analyze_article(
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
-            max_completion_tokens=1000,
+            max_completion_tokens=10000,
         )
         analysis = resp.choices[0].message.content
     except Exception as exc:
