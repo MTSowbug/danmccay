@@ -1471,6 +1471,21 @@ def schematize_experiment(
         print(f"Failed to read experiment text: {exc}")
         return ""
 
+    # Only send the first paragraph of the experiment text to the LLM
+    first_para = exp_text.strip().split("\n\n", 1)[0]
+
+    # Load schematizer prompts from the character file
+    try:
+        with (_BASE_DIR / "danmccay.yaml").open("r", encoding="utf-8") as fh:
+            core = yaml.safe_load(fh)
+        brain = core.get("prompts", {}).get("brain", {})
+        pre = brain.get("schematizer_preamble", "")
+        post = brain.get("schematizer_postamble", "")
+    except Exception as exc:
+        print(f"Failed to load schematizer prompts: {exc}")
+        pre = ""
+        post = ""
+
     schema_text = ""
     if Path(schema_file).is_file():
         try:
@@ -1478,16 +1493,12 @@ def schematize_experiment(
         except Exception as exc:
             print(f"Failed to read schema file: {exc}")
 
-    prompt = (
-        "Here is the SQL table schema:\n" + schema_text.strip() +
-        "\n\nConvert the following experiment description into a row. "
-        "Provide column=value pairs and suggest any missing columns if needed."\
-    )
+    prompt = f"{pre}\n{schema_text.strip()}\n\n{post}".strip()
 
     client = openai.OpenAI()
     messages = [
         {"role": "system", "content": prompt},
-        {"role": "user", "content": exp_text.strip()},
+        {"role": "user", "content": first_para},
     ]
 
     try:
