@@ -1450,6 +1450,7 @@ def design_experiments_from_analyses(
             continue
 
         design_experiment_for_file(txt_path, char_file=char_file)
+        schematize_experiment(exp_path)
         processed.append(txt_path)
 
     return processed

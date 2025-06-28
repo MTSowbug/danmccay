@@ -1431,7 +1431,17 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     os.utime(analysis, (ts, ts))
 
     calls = []
-    monkeypatch.setattr(fft, "design_experiment_for_file", lambda p, char_file=None: calls.append(p))
+    schem_calls = []
+    monkeypatch.setattr(
+        fft,
+        "design_experiment_for_file",
+        lambda p, char_file=None: calls.append(p),
+    )
+    monkeypatch.setattr(
+        fft,
+        "schematize_experiment",
+        lambda p: schem_calls.append(p),
+    )
 
     class FakeDateTime(dt.datetime):
         @classmethod
@@ -1441,7 +1451,9 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     monkeypatch.setattr(fft._dt, "datetime", FakeDateTime)
 
     out = fft.design_experiments_from_analyses(pdf_dir=tmp_path)
+    exp_path = tmp_path / "paper.exp.txt"
     assert calls == [txt]
+    assert schem_calls == [exp_path]
     assert out == [txt]
 
 
