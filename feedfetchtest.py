@@ -1309,6 +1309,43 @@ def analyze_article(
     except Exception as exc:
         print(f"Failed to save analysis text: {exc}")
 
+    # Parse relevance scores from the analysis
+    scores = {}
+    for i, field in [(1, "lt-relevance"), (2, "mt-relevance"), (3, "st-relevance")]:
+        m = re.search(
+            rf"\[\[SECTION\s*{i}\]\].*?<<[^:>]*:\s*(\d+)\s*>>",
+            analysis,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if m:
+            try:
+                scores[field] = int(m.group(1))
+            except Exception:
+                pass
+
+    if scores:
+        try:
+            with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
+                articles = json.load(fh)
+        except Exception:
+            articles = {}
+
+        rel = None
+        try:
+            rel = str(Path(pdf_path).resolve().relative_to(_PDF_DIR))
+        except Exception:
+            rel = pdf_path.name
+
+        updated = False
+        for data in articles.values():
+            if data.get("pdf") == rel:
+                data.update(scores)
+                updated = True
+                break
+
+        if updated:
+            _save_articles(articles, _ARTICLES_JSON)
+
     return analysis
 
 
