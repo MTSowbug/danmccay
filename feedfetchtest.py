@@ -1354,7 +1354,7 @@ def design_experiment_for_doi(
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
-            max_completion_tokens=1000,
+            max_completion_tokens=20000,
         )
         design = resp.choices[0].message.content
     except Exception as exc:
@@ -1410,7 +1410,7 @@ def design_experiment_for_file(
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
-            max_completion_tokens=1000,
+            max_completion_tokens=20000,
         )
         design = resp.choices[0].message.content
     except Exception as exc:
