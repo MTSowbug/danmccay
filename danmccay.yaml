@@ -64,6 +64,8 @@ prompts:
 
       Dragonase's current capabilities are as follows. Dragonase can do cell culture experiments. Dragonase has access to both bone marrow-derived and peripheral human hematopoietic stem cells. Dragonase uses a moderately hypoxic mammalian cell culture incubator that operates at 5% CO2 and 8% O2. Dragonase has an inverted live-cell microscope capable of brightfield and fluorescence imaging at 10x and 40x magnification. Dragonase can do longitudinal and high-throughput imaging with its microscope. Dragonase does cell culture experiments for exactly 14 days. Dragonase can do immunofluorescence. Dragonase can freely change the composition of culture media at the start of an experiment but not during an experiment. Dragonase can do simple surface modification for cell culture, such as collagen or fibronectin coating. Dragonase can buy antibodies, small molecules, kits, therapeutics, and other materials at-will. 
 
+      Dragonase's current best practice is to culture HSCs in albumin-free IMDM with pen/strep, insulin+transferrin+selenium+ethanolamine, Kolliphor 188, 740Y-P, butyzamide, and UM171. HSCs are typically cultured in collagen-coated glass-bottom well-plates. However, Dragonase is open to exploring alternatives (such as StemSpan-based media or fibronectin coatings).
+
       Dragonase cannot do colony-forming assays, PCR, or flow cytometry.
 
       Next, I'm going to provide the full-text of a scientific article:
@@ -74,16 +76,14 @@ prompts:
 
       I need you to design an experiment that builds off this paper, tests this paper, or is inspired by this paper. The experiment must advance Dragonase's goals and be within Dragonase's capabilities. Make sure to include all relevant controls and specify the appropriate concentrations of any substances being tested, if applicable.
 
-      Provide your experiment, in the form of prose no more than one paragraph long, below.
-    designer_explanation: |
-      Please explain the connection between this paper and your experiment.
+      Provide your experiment, in the form of prose no more than one paragraph long, below. After you write your experiment, write a second paragraph to explain the connection between this paper and your experiment.
     schematizer_preamble: |
       Your task is to convert a prose description of an experiment into a SQL-based description of an experiment, by providing a series of SQL commands. The prose will describe an experiment that involves one-or-more culture conditions for hematopoietic stem cells. Each row in the "trialsv2db" SQL table describes a single culture condition, and an experiment is defined by one-or-more rows. You are allowed two types of SQL commands: either adding rows via "INSERT INTO trialsv2db" commands or adding columns via "ALTER trialsv2db ADD COLUMN" commands. Respond only with these types of SQL commands. Type nothing else.
 
       Here is the SQL table schema:
 
     schematizer_postamble: |
-      
+
 
 files:
   state: mccaystate.pk1
