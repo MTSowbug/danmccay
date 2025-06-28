@@ -1160,6 +1160,83 @@ def _scheduled_experiment_worker():
             time.sleep(30)
 
 
+def _manual_rss_worker():
+    """Run the daily RSS fetch once."""
+    try:
+        print("Running daily RSS fetch...")
+        fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
+    except Exception as exc:
+        print(f"RSS fetch failed: {exc}")
+
+
+def _manual_pdf_worker():
+    """Fetch PDFs, run OCR, and analyze abstracts once."""
+    try:
+        pdf_dir = Path(fft._PDF_DIR)
+        before = set(pdf_dir.glob("*.pdf"))
+        download_missing_pdfs(max_articles=1)
+        after = set(pdf_dir.glob("*.pdf"))
+        pending = {p for p in after if not p.with_suffix(".txt").exists()}
+        for pdf in pending:
+            try:
+                proc = multiprocessing.Process(
+                    target=fft.ocr_pdf,
+                    args=(pdf.name, pdf_dir),
+                )
+                proc.daemon = True
+                proc.start()
+                proc.join()
+
+                txt_path = pdf.with_suffix(".txt")
+                if txt_path.exists() and not pdf.with_suffix(".analysis.txt").exists():
+                    abstract = ""
+                    try:
+                        raw_text = txt_path.read_text(encoding="utf-8")
+                    except Exception as exc:
+                        print(f"Failed to read OCR text: {exc}")
+                        raw_text = ""
+
+                    if raw_text:
+                        client = OpenAI()
+                        messages = [
+                            {
+                                "role": "system",
+                                "content": (
+                                    "Identify and return only the complete Abstract section from the following OCR extracted text."
+                                ),
+                            },
+                            {"role": "user", "content": raw_text[:20000]},
+                        ]
+
+                        try:
+                            resp = client.chat.completions.create(
+                                model=SPEAKING_MODEL,
+                                messages=messages,
+                                max_completion_tokens=500,
+                            )
+                            abstract = resp.choices[0].message.content.strip()
+                        except Exception as exc:
+                            print(f"LLM abstract extraction failed: {exc}")
+
+                    if abstract:
+                        try:
+                            fft.analyze_article(abstract, pdf)
+                        except Exception as exc:
+                            print(f"Analysis failed: {exc}")
+            except Exception as exc:
+                print(f"Scheduled OCR failed: {exc}")
+    except Exception as exc:
+        print(f"Scheduled fetch failed: {exc}")
+
+
+def _manual_experiment_worker():
+    """Design experiments for OCR articles once."""
+    try:
+        fft.design_experiments_from_analyses()
+    except Exception as exc:
+        print(f"Scheduled design failed: {exc}")
+
+
 
 
 #Claude 3.5 Sonnet AI call
@@ -1878,6 +1955,19 @@ lambda chardata: (
                     fetch_schema_file()
                 except Exception as exc:
                     print(f"Schema fetch failed: {exc}")
+                continue
+            elif "mccay, daily rss" in response.lower():
+                response = send_command(tn, "emote runs his scheduled RSS fetch.")
+                _manual_rss_worker()
+                last_rss_date = dt.datetime.now().date()
+                continue
+            elif "mccay, daily pdf" in response.lower():
+                response = send_command(tn, "emote performs his daily PDF routine.")
+                _manual_pdf_worker()
+                continue
+            elif "mccay, daily experiments" in response.lower():
+                response = send_command(tn, "emote designs today's experiments.")
+                _manual_experiment_worker()
                 continue
             elif "mccay, do ocr on" in response.lower():
                 response2 = response
