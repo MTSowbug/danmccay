@@ -1269,7 +1269,12 @@ def analyze_article(
     pdf_path: Path,
     char_file: Path | str = (_BASE_DIR / "danmccay.yaml"),
 ) -> str:
-    """Return an LLM analysis of *abstract* and save it next to *pdf_path*."""
+    """Return an LLM analysis of *abstract* and save it next to *pdf_path*.
+
+    The saved text starts with the abstract followed by a blank line and then
+    the analysis.  This allows downstream consumers to access the abstract
+    directly from the ``.analysis.txt`` file.
+    """
 
     try:
         with Path(char_file).open("r", encoding="utf-8") as fh:
@@ -1300,7 +1305,7 @@ def analyze_article(
 
     out_path = pdf_path.with_suffix(".analysis.txt")
     try:
-        out_path.write_text(analysis, encoding="utf-8")
+        out_path.write_text(f"{abstract.strip()}\n\n{analysis}", encoding="utf-8")
     except Exception as exc:
         print(f"Failed to save analysis text: {exc}")
 

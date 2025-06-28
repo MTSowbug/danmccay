@@ -1218,7 +1218,7 @@ def test_fetch_pdf_for_doi_runs_analysis(monkeypatch, tmp_path):
     assert out == tmp_path / "x.pdf"
 
     analysis_path = tmp_path / "x.analysis.txt"
-    assert analysis_path.read_text() == "ANALYSIS"
+    assert analysis_path.read_text() == "This is the abstract.\n\nANALYSIS"
     assert client.calls[1]["model"] == fft.THINKING_MODEL
 
 
