@@ -1343,6 +1343,52 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
     assert any("http://ex.com/page.html" in m.get("content", "") for m in messages[1])
 
 
+def test_analyze_article_updates_scores(monkeypatch, tmp_path):
+    json_path = tmp_path / "a.json"
+    data = {
+        "k": {
+            "pdf": "a.pdf",
+            "lt-relevance": 0,
+            "mt-relevance": 0,
+            "st-relevance": 0,
+        }
+    }
+    json_path.write_text(json.dumps(data))
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+    monkeypatch.setattr(fft, "_PDF_DIR", tmp_path)
+
+    char_path = tmp_path / "c.yaml"
+    char_path.write_text(
+        "prompts:\n  brain:\n    relevance_preamble: P\n    relevance_postamble: Q\n"
+    )
+
+    analysis_text = (
+        "[[SECTION 1]]\n<<lt-relevance: 4>>\n\n[[SECTION 2]]\n<<mt-relevance: 3>>\n\n[[SECTION 3]]\n<<st-relevance: 7>>"
+    )
+
+    class FakeResp:
+        def __init__(self):
+            self.choices = [types.SimpleNamespace(message=types.SimpleNamespace(content=analysis_text))]
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=lambda **k: FakeResp())
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    pdf_path = tmp_path / "a.pdf"
+    pdf_path.write_text("d")
+
+    fft.analyze_article("ABSTRACT", pdf_path, char_file=char_path)
+
+    stored = json.loads(json_path.read_text())
+    assert stored["k"]["lt-relevance"] == 4
+    assert stored["k"]["mt-relevance"] == 3
+    assert stored["k"]["st-relevance"] == 7
+
+
 def test_design_experiment_for_doi(monkeypatch, tmp_path):
     txt = tmp_path / "doiorg10.1_x.txt"
     txt.write_text("FULL", encoding="utf-8")
