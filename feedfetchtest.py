@@ -1514,11 +1514,14 @@ def schematize_experiment(
         row = ""
 
     out_path = exp_path
-    if out_path.suffix == ".txt":
-        out_path = out_path.with_suffix("")
-    if out_path.suffix == ".exp":
-        out_path = out_path.with_suffix("")
-    out_path = out_path.with_suffix(".schema.txt")
+    name = out_path.name
+    if name.endswith(".exp.txt"):
+        name = name[: -len(".exp.txt")]
+    elif name.endswith(".txt"):
+        name = name[: -len(".txt")]
+    elif name.endswith(".exp"):
+        name = name[: -len(".exp")]
+    out_path = out_path.with_name(name + ".schema.txt")
     try:
         out_path.write_text(row, encoding="utf-8")
     except Exception as exc:
