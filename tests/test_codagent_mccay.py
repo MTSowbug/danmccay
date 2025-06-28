@@ -647,3 +647,62 @@ def test_scheduled_experiment_worker(monkeypatch, tmp_path):
         cam._scheduled_experiment_worker()
 
     assert calls == [True]
+
+
+def test_manual_rss_worker(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cam, "fetch_recent_articles", lambda *a, **k: calls.append(True))
+
+    cam._manual_rss_worker()
+
+    assert calls == [True]
+
+
+def test_manual_pdf_worker(monkeypatch, tmp_path):
+    downloads = []
+    monkeypatch.setattr(cam.fft, "_PDF_DIR", tmp_path)
+    monkeypatch.setattr(cam, "download_missing_pdfs", lambda max_articles=1: downloads.append(max_articles))
+
+    created = tmp_path / "a.pdf"
+    created.write_bytes(b"d")
+
+    processed = []
+
+    class FakeProcess:
+        def __init__(self, target=None, args=(), kwargs=None):
+            processed.append(args[0])
+        def daemon(self, *a, **k):
+            pass
+        def start(self):
+            pass
+        def join(self):
+            txt = tmp_path / f"{processed[-1].split('.')[0]}.txt"
+            txt.write_text("ABSTRACT", encoding="utf-8")
+
+    monkeypatch.setattr(cam.multiprocessing, "Process", FakeProcess)
+
+    class FakeClient:
+        def __init__(self):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **k: types.SimpleNamespace(
+                        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="ABSTRACT"))]
+                    )
+                )
+            )
+    monkeypatch.setattr(cam, "OpenAI", lambda: FakeClient())
+    monkeypatch.setattr(cam.fft, "analyze_article", lambda a, p: processed.append("analyzed"))
+
+    cam._manual_pdf_worker()
+
+    assert downloads == [1]
+    assert "analyzed" in processed
+
+
+def test_manual_experiment_worker(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(cam.fft, "design_experiments_from_analyses", lambda: calls.append(True))
+
+    cam._manual_experiment_worker()
+
+    assert calls == [True]
