@@ -1075,7 +1075,7 @@ def _scheduled_schema_worker():
             time.sleep(30)
 
 
-def _scheduled_agingcell_worker():
+def _scheduled_pdf_worker():
     """Background task fetching PDFs for pending articles each morning."""
     start = dt.time(6, 30)
     end = dt.time(7, 30)
@@ -1085,7 +1085,7 @@ def _scheduled_agingcell_worker():
             try:
                 pdf_dir = Path(fft._PDF_DIR)
                 before = set(pdf_dir.glob("*.pdf"))
-                download_missing_pdfs(max_articles=1)
+                download_missing_pdfs(max_articles=20)
                 after = set(pdf_dir.glob("*.pdf"))
                 pending = {p for p in after if not p.with_suffix(".txt").exists()}
                 for pdf in pending:
@@ -1174,7 +1174,7 @@ def _manual_pdf_worker():
     try:
         pdf_dir = Path(fft._PDF_DIR)
         before = set(pdf_dir.glob("*.pdf"))
-        download_missing_pdfs(max_articles=1)
+        download_missing_pdfs(max_articles=20)
         after = set(pdf_dir.glob("*.pdf"))
         pending = {p for p in after if not p.with_suffix(".txt").exists()}
         for pdf in pending:
@@ -1553,7 +1553,7 @@ def main():
     print(f"Mode set to: {system_mode}")
 
     # Start background fetcher threads
-    threading.Thread(target=_scheduled_agingcell_worker, daemon=True).start()
+    threading.Thread(target=_scheduled_pdf_worker, daemon=True).start()
     threading.Thread(target=_scheduled_schema_worker, daemon=True).start()
     threading.Thread(target=_scheduled_experiment_worker, daemon=True).start()
 
