@@ -1483,8 +1483,13 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     os.utime(analysis2, (ts, ts))
 
     articles = {
-        "A": {"pdf": "paper.pdf", "lt-relevance": 5},
-        "B": {"pdf": "other.pdf", "lt-relevance": 3},
+        "A": {"pdf": "paper.pdf", "lt-relevance": 1},
+        "B": {
+            "pdf": "other.pdf",
+            "lt-relevance": 0,
+            "mt-relevance": 1,
+            "st-relevance": 1,
+        },
     }
     json_path = tmp_path / "articles.json"
     json_path.write_text(json.dumps(articles))
@@ -1533,7 +1538,7 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     assert set(out) == {txt1, txt2}
 
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
-    assert wellplate.read_text() == "INSERT INTO X;\nINSERT INTO X;\nINSERT INTO X;\n"
+    assert wellplate.read_text() == "INSERT INTO X;\n" * 10
 
 
 def test_schematize_experiment(monkeypatch, tmp_path):

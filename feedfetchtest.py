@@ -1498,7 +1498,17 @@ def design_experiments_from_analyses(
             print(f"Failed to read articles JSON: {exc}")
             articles = {}
 
-        scores = {data.get("pdf"): data.get("lt-relevance", 0) for data in articles.values() if isinstance(data, dict)}
+        scores = {}
+        for data in articles.values():
+            if not isinstance(data, dict):
+                continue
+            pdf = data.get("pdf")
+            if not pdf:
+                continue
+            lt = data.get("lt-relevance", 0)
+            mt = data.get("mt-relevance", 0)
+            st = data.get("st-relevance", 0)
+            scores[pdf] = lt + 2 * mt + 3 * st
 
         def _score(p: Path) -> int:
             pdf_rel = p.with_suffix(".pdf")
