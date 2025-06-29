@@ -1085,7 +1085,7 @@ def _scheduled_pdf_worker():
             try:
                 pdf_dir = Path(fft._PDF_DIR)
                 before = set(pdf_dir.glob("*.pdf"))
-                download_missing_pdfs(max_articles=20)
+                download_missing_pdfs(max_articles=1)
                 after = set(pdf_dir.glob("*.pdf"))
                 pending = {p for p in after if not p.with_suffix(".txt").exists()}
                 for pdf in pending:
@@ -1143,6 +1143,11 @@ def _scheduled_pdf_worker():
             time.sleep(60)
 
 
+def _scheduled_agingcell_worker():
+    """Compatibility wrapper for tests expecting the old name."""
+    return _scheduled_pdf_worker()
+
+
 def _scheduled_experiment_worker():
     """Design experiments for OCR articles each morning at 8 AM."""
 
@@ -1174,7 +1179,7 @@ def _manual_pdf_worker():
     try:
         pdf_dir = Path(fft._PDF_DIR)
         before = set(pdf_dir.glob("*.pdf"))
-        download_missing_pdfs(max_articles=20)
+        download_missing_pdfs(max_articles=1)
         after = set(pdf_dir.glob("*.pdf"))
         pending = {p for p in after if not p.with_suffix(".txt").exists()}
         for pdf in pending:
@@ -1553,7 +1558,7 @@ def main():
     print(f"Mode set to: {system_mode}")
 
     # Start background fetcher threads
-    threading.Thread(target=_scheduled_pdf_worker, daemon=True).start()
+    threading.Thread(target=_scheduled_agingcell_worker, daemon=True).start()
     threading.Thread(target=_scheduled_schema_worker, daemon=True).start()
     threading.Thread(target=_scheduled_experiment_worker, daemon=True).start()
 
