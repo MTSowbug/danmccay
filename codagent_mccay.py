@@ -1164,7 +1164,7 @@ def _manual_rss_worker():
     """Run the daily RSS fetch once."""
     try:
         print("Running daily RSS fetch...")
-        fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
+        fetch_recent_articles("mccayfeeds.opml", hours=72, download_pdfs=False)
     except Exception as exc:
         print(f"RSS fetch failed: {exc}")
 
