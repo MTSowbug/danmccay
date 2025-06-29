@@ -1490,6 +1490,50 @@ def design_experiments_from_analyses(
         schematize_experiment(exp_path)
         processed.append(txt_path)
 
+    if processed:
+        try:
+            with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
+                articles = json.load(fh)
+        except Exception as exc:
+            print(f"Failed to read articles JSON: {exc}")
+            articles = {}
+
+        scores = {data.get("pdf"): data.get("lt-relevance", 0) for data in articles.values() if isinstance(data, dict)}
+
+        def _score(p: Path) -> int:
+            pdf_rel = p.with_suffix(".pdf")
+            try:
+                pdf_rel = pdf_rel.resolve().relative_to(Path(pdf_dir).resolve())
+            except Exception:
+                pdf_rel = pdf_rel.name
+            return scores.get(str(pdf_rel), 0)
+
+        ordered = sorted(processed, key=_score, reverse=True)
+
+        wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
+        total = 0
+        try:
+            with wellplate.open("w", encoding="utf-8") as wh:
+                for txt_path in ordered:
+                    schema_path = txt_path.with_suffix(".schema.txt")
+                    if not schema_path.is_file():
+                        continue
+                    try:
+                        schema_text = schema_path.read_text(encoding="utf-8")
+                    except Exception:
+                        continue
+                    inserts = re.findall(r"INSERT\s+INTO", schema_text, flags=re.I)
+                    if total + len(inserts) > 12:
+                        continue
+                    if not inserts:
+                        continue
+                    wh.write(schema_text.strip() + "\n")
+                    total += len(inserts)
+                    if total >= 12:
+                        break
+        except Exception as exc:
+            print(f"Failed to create wellplate file: {exc}")
+
     return processed
 
 
