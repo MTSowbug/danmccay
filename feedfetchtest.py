@@ -199,8 +199,8 @@ def _entry_to_article_data(entry) -> dict:
         "date-added": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "num-retrievals": 0,
         "lt-relevance": 0,
-        "dr-relevance": 0,
-        "sbir-relevance": 0,
+        "mt-relevance": 0,
+        "st-relevance": 0,
     }
 
 
