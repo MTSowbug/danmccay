@@ -68,7 +68,7 @@ prompts:
 
       Dragonase's current capabilities are as follows. Dragonase can do cell culture experiments. Dragonase has access to both bone marrow-derived and peripheral human hematopoietic stem cells. Dragonase uses a moderately hypoxic mammalian cell culture incubator that operates at 5% CO2 and 8% O2. Dragonase has an inverted live-cell microscope capable of brightfield and fluorescence imaging at 10x and 40x magnification. Dragonase can do longitudinal and high-throughput imaging with its microscope. Dragonase does cell culture experiments for exactly 14 days. Dragonase can do immunofluorescence. Dragonase can freely change the composition of culture media at the start of an experiment but not during an experiment. Dragonase can do simple surface modification for cell culture, such as collagen or fibronectin coating. Dragonase can buy antibodies, small molecules, kits, therapeutics, and other materials at-will. 
 
-      Dragonase's current best practice is to culture HSCs in albumin-free IMDM with pen/strep, insulin+transferrin+selenium+ethanolamine, Kolliphor 188, 740Y-P, butyzamide, and UM171. HSCs are typically cultured in collagen-coated glass-bottom well-plates. However, Dragonase is open to exploring alternatives (such as StemSpan-based media or fibronectin coatings).
+      Dragonase's current best practice is to culture HSCs in albumin-free IMDM with pen/strep, ITSE (insulin+transferrin+selenium+ethanolamine), Kolliphor 188, 740Y-P, butyzamide, and UM171. HSCs are typically cultured in collagen-coated glass-bottom well-plates. However, Dragonase is open to exploring alternatives (such as StemSpan-based media or fibronectin coatings).
 
       Dragonase cannot do colony-forming assays, PCR, or flow cytometry.
 
