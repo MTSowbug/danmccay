@@ -1478,8 +1478,8 @@ def design_experiments_from_analyses(
             mtime = _dt.datetime.fromtimestamp(analysis.stat().st_mtime).date()
         except Exception:
             continue
-        if mtime != today:
-            continue
+        #if mtime != today:
+        #    continue
 
         txt_path = analysis.with_name(analysis.name.replace(".analysis.txt", ".txt"))
         exp_path = txt_path.with_suffix(".exp.txt")
