@@ -41,12 +41,15 @@ import random
 import shutil
 import tempfile
 import zipfile
+import logging
 
 import feedparser as _fp
 
 _BASE_DIR = Path(__file__).resolve().parent
 _PDF_DIR = (_BASE_DIR / "../pdfs").resolve()
 _ARTICLES_JSON = _PDF_DIR / "articles.json"
+
+logger = logging.getLogger(__name__)
 
 # Ensure a default articles store exists for convenience
 _PDF_DIR.mkdir(parents=True, exist_ok=True)
@@ -1418,14 +1421,15 @@ def design_experiment_for_file(
     with a ``.exp.txt`` suffix."""
 
     txt_path = Path(txt_file)
+    logger.info("[design_experiment_for_file] Processing %s", txt_path)
     if not txt_path.is_file():
-        print(f"Text not found: {txt_path}")
+        logger.warning("[design_experiment_for_file] Text not found: %s", txt_path)
         return ""
 
     try:
         full_text = txt_path.read_text(encoding="utf-8")
     except Exception as exc:
-        print(f"Failed to read text: {exc}")
+        logger.error("[design_experiment_for_file] Failed to read text: %s", exc)
         return ""
 
     try:
@@ -1435,7 +1439,7 @@ def design_experiment_for_file(
         pre = brain.get("designer_preamble", "")
         post = brain.get("designer_postamble", "")
     except Exception as exc:
-        print(f"Failed to load designer prompts: {exc}")
+        logger.error("[design_experiment_for_file] Failed to load designer prompts: %s", exc)
         pre = ""
         post = ""
 
@@ -1444,6 +1448,7 @@ def design_experiment_for_file(
     messages = [{"role": "system", "content": prompt}]
 
     try:
+        logger.info("[design_experiment_for_file] Sending text to LLM")
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
@@ -1451,14 +1456,15 @@ def design_experiment_for_file(
         )
         design = resp.choices[0].message.content
     except Exception as exc:
-        print(f"LLM design failed: {exc}")
+        logger.error("[design_experiment_for_file] LLM design failed: %s", exc)
         design = ""
 
     out_path = txt_path.with_suffix(".exp.txt")
     try:
         out_path.write_text(design, encoding="utf-8")
+        logger.info("[design_experiment_for_file] Saved design to %s", out_path)
     except Exception as exc:
-        print(f"Failed to save design text: {exc}")
+        logger.error("[design_experiment_for_file] Failed to save design text: %s", exc)
 
     return design
 
@@ -1472,6 +1478,7 @@ def design_experiments_from_analyses(
     Returns a list of processed text file paths."""
 
     today = _dt.datetime.now().date()
+    logger.info("[design_experiments_from_analyses] Searching for analyses in %s", pdf_dir)
     processed: list[Path] = []
     for analysis in Path(pdf_dir).glob("*.analysis.txt"):
         try:
@@ -1480,14 +1487,22 @@ def design_experiments_from_analyses(
             continue
         #if mtime != today:
         #    continue
-
+        logger.info("[design_experiments_from_analyses] Found analysis %s", analysis)
         txt_path = analysis.with_name(analysis.name.replace(".analysis.txt", ".txt"))
         exp_path = txt_path.with_suffix(".exp.txt")
         if not txt_path.is_file() or exp_path.is_file():
+            logger.info(
+                "[design_experiments_from_analyses] Skipping %s (text missing or experiment exists)",
+                txt_path,
+            )
             continue
 
         design_experiment_for_file(txt_path, char_file=char_file)
         schematize_experiment(exp_path)
+        logger.info(
+            "[design_experiments_from_analyses] Created experiment and schema for %s",
+            txt_path,
+        )
         processed.append(txt_path)
 
     if processed:
@@ -1495,7 +1510,7 @@ def design_experiments_from_analyses(
             with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
                 articles = json.load(fh)
         except Exception as exc:
-            print(f"Failed to read articles JSON: {exc}")
+            logger.error("[design_experiments_from_analyses] Failed to read articles JSON: %s", exc)
             articles = {}
 
         scores = {}
@@ -1519,6 +1534,10 @@ def design_experiments_from_analyses(
             return scores.get(str(pdf_rel), 0)
 
         ordered = sorted(processed, key=_score, reverse=True)
+        logger.info(
+            "[design_experiments_from_analyses] Ordering %d experiments by relevance",
+            len(ordered),
+        )
 
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
         total = 0
@@ -1542,7 +1561,7 @@ def design_experiments_from_analyses(
                     if total >= 12:
                         break
         except Exception as exc:
-            print(f"Failed to create wellplate file: {exc}")
+            logger.error("[design_experiments_from_analyses] Failed to create wellplate file: %s", exc)
 
     return processed
 
@@ -1557,10 +1576,11 @@ def schematize_experiment(
     suffix."""
 
     exp_path = Path(exp_file)
+    logger.info("[schematize_experiment] Processing %s", exp_path)
     try:
         exp_text = exp_path.read_text(encoding="utf-8")
     except Exception as exc:
-        print(f"Failed to read experiment text: {exc}")
+        logger.error("[schematize_experiment] Failed to read experiment text: %s", exc)
         return ""
 
     # Only send the first paragraph of the experiment text to the LLM
@@ -1574,7 +1594,7 @@ def schematize_experiment(
         pre = brain.get("schematizer_preamble", "")
         post = brain.get("schematizer_postamble", "")
     except Exception as exc:
-        print(f"Failed to load schematizer prompts: {exc}")
+        logger.error("[schematize_experiment] Failed to load schematizer prompts: %s", exc)
         pre = ""
         post = ""
 
@@ -1583,7 +1603,7 @@ def schematize_experiment(
         try:
             schema_text = Path(schema_file).read_text(encoding="utf-8")
         except Exception as exc:
-            print(f"Failed to read schema file: {exc}")
+            logger.error("[schematize_experiment] Failed to read schema file: %s", exc)
 
     prompt = f"{pre}\n{schema_text.strip()}\n\n{post}".strip()
 
@@ -1594,6 +1614,7 @@ def schematize_experiment(
     ]
 
     try:
+        logger.info("[schematize_experiment] Sending experiment to LLM")
         resp = client.chat.completions.create(
             model=THINKING_MODEL,
             messages=messages,
@@ -1601,7 +1622,7 @@ def schematize_experiment(
         )
         row = resp.choices[0].message.content
     except Exception as exc:
-        print(f"LLM schematization failed: {exc}")
+        logger.error("[schematize_experiment] LLM schematization failed: %s", exc)
         row = ""
 
     out_path = exp_path
@@ -1615,8 +1636,9 @@ def schematize_experiment(
     out_path = out_path.with_name(name + ".schema.txt")
     try:
         out_path.write_text(row, encoding="utf-8")
+        logger.info("[schematize_experiment] Saved schema to %s", out_path)
     except Exception as exc:
-        print(f"Failed to save schema text: {exc}")
+        logger.error("[schematize_experiment] Failed to save schema text: %s", exc)
 
     return row
 
