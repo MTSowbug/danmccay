@@ -1468,26 +1468,55 @@ def test_design_experiment_for_file(monkeypatch, tmp_path):
 
 
 def test_design_experiments_from_analyses(monkeypatch, tmp_path):
-    txt = tmp_path / "paper.txt"
-    txt.write_text("TXT", encoding="utf-8")
-    analysis = tmp_path / "paper.analysis.txt"
-    analysis.write_text("analysis", encoding="utf-8")
+    txt1 = tmp_path / "paper.txt"
+    txt1.write_text("TXT1", encoding="utf-8")
+    analysis1 = tmp_path / "paper.analysis.txt"
+    analysis1.write_text("analysis", encoding="utf-8")
+
+    txt2 = tmp_path / "other.txt"
+    txt2.write_text("TXT2", encoding="utf-8")
+    analysis2 = tmp_path / "other.analysis.txt"
+    analysis2.write_text("analysis", encoding="utf-8")
 
     ts = dt.datetime(2024, 1, 1, 7, 0).timestamp()
-    os.utime(analysis, (ts, ts))
+    os.utime(analysis1, (ts, ts))
+    os.utime(analysis2, (ts, ts))
+
+    articles = {
+        "A": {"pdf": "paper.pdf", "lt-relevance": 5},
+        "B": {"pdf": "other.pdf", "lt-relevance": 3},
+    }
+    json_path = tmp_path / "articles.json"
+    json_path.write_text(json.dumps(articles))
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+    monkeypatch.setattr(fft, "_PDF_DIR", tmp_path)
 
     calls = []
     schem_calls = []
-    monkeypatch.setattr(
-        fft,
-        "design_experiment_for_file",
-        lambda p, char_file=None: calls.append(p),
-    )
-    monkeypatch.setattr(
-        fft,
-        "schematize_experiment",
-        lambda p: schem_calls.append(p),
-    )
+
+    def fake_design(p, char_file=None):
+        calls.append(p)
+        p.with_suffix(".exp.txt").write_text("EXP")
+        return "EXP"
+
+    def fake_schema(p):
+        schem_calls.append(p)
+        name = p.name
+        if name.endswith(".exp.txt"):
+            name = name[: -len(".exp.txt")]
+        elif name.endswith(".txt"):
+            name = name[: -len(".txt")]
+        elif name.endswith(".exp"):
+            name = name[: -len(".exp")]
+        out = p.with_name(name + ".schema.txt")
+        if "paper" in p.name:
+            out.write_text("INSERT INTO X;\nINSERT INTO X;\nINSERT INTO X;\n")
+        else:
+            out.write_text("INSERT INTO X;\n" * 10)
+        return "SCHEMA"
+
+    monkeypatch.setattr(fft, "design_experiment_for_file", fake_design)
+    monkeypatch.setattr(fft, "schematize_experiment", fake_schema)
 
     class FakeDateTime(dt.datetime):
         @classmethod
@@ -1497,10 +1526,14 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     monkeypatch.setattr(fft._dt, "datetime", FakeDateTime)
 
     out = fft.design_experiments_from_analyses(pdf_dir=tmp_path)
-    exp_path = tmp_path / "paper.exp.txt"
-    assert calls == [txt]
-    assert schem_calls == [exp_path]
-    assert out == [txt]
+    exp1 = txt1.with_suffix(".exp.txt")
+    exp2 = txt2.with_suffix(".exp.txt")
+    assert set(calls) == {txt1, txt2}
+    assert set(schem_calls) == {exp1, exp2}
+    assert set(out) == {txt1, txt2}
+
+    wellplate = tmp_path / "2024-01-01_wellplate.txt"
+    assert wellplate.read_text() == "INSERT INTO X;\nINSERT INTO X;\nINSERT INTO X;\n"
 
 
 def test_schematize_experiment(monkeypatch, tmp_path):
