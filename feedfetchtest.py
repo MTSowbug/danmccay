@@ -1418,14 +1418,16 @@ def design_experiment_for_file(
     with a ``.exp.txt`` suffix."""
 
     txt_path = Path(txt_file)
+    print(f"[DESIGN] Preparing to design experiment for {txt_path}")
     if not txt_path.is_file():
-        print(f"Text not found: {txt_path}")
+        print(f"[DESIGN] Text not found: {txt_path}")
         return ""
 
     try:
         full_text = txt_path.read_text(encoding="utf-8")
+        print(f"[DESIGN] Read {len(full_text)} characters from {txt_path}")
     except Exception as exc:
-        print(f"Failed to read text: {exc}")
+        print(f"[DESIGN] Failed to read text: {exc}")
         return ""
 
     try:
@@ -1434,12 +1436,14 @@ def design_experiment_for_file(
         brain = core.get("prompts", {}).get("brain", {})
         pre = brain.get("designer_preamble", "")
         post = brain.get("designer_postamble", "")
+        print(f"[DESIGN] Loaded designer prompts from {char_file}")
     except Exception as exc:
-        print(f"Failed to load designer prompts: {exc}")
+        print(f"[DESIGN] Failed to load designer prompts: {exc}")
         pre = ""
         post = ""
 
     prompt = f"{pre}\n\n{full_text.strip()}\n\n{post}".strip()
+    print(f"[DESIGN] Prompt length: {len(prompt)} characters")
     client = openai.OpenAI()
     messages = [{"role": "system", "content": prompt}]
 
@@ -1450,15 +1454,17 @@ def design_experiment_for_file(
             max_completion_tokens=20000,
         )
         design = resp.choices[0].message.content
+        print("[DESIGN] Received design from LLM")
     except Exception as exc:
-        print(f"LLM design failed: {exc}")
+        print(f"[DESIGN] LLM design failed: {exc}")
         design = ""
 
     out_path = txt_path.with_suffix(".exp.txt")
     try:
         out_path.write_text(design, encoding="utf-8")
+        print(f"[DESIGN] Saved design to {out_path}")
     except Exception as exc:
-        print(f"Failed to save design text: {exc}")
+        print(f"[DESIGN] Failed to save design text: {exc}")
 
     return design
 
@@ -1471,31 +1477,46 @@ def design_experiments_from_analyses(
 
     Returns a list of processed text file paths."""
 
+    print(f"[BATCH] Designing experiments in {pdf_dir} using {char_file}")
+
     today = _dt.datetime.now().date()
     processed: list[Path] = []
-    for analysis in Path(pdf_dir).glob("*.analysis.txt"):
+    analyses = list(Path(pdf_dir).glob("*.analysis.txt"))
+    print(f"[BATCH] Found {len(analyses)} analysis file(s)")
+
+    for analysis in analyses:
+        print(f"[BATCH] Examining {analysis}")
         try:
             mtime = _dt.datetime.fromtimestamp(analysis.stat().st_mtime).date()
-        except Exception:
+            print(f"[BATCH] mtime for {analysis}: {mtime}")
+        except Exception as exc:
+            print(f"[BATCH] Failed to read mtime for {analysis}: {exc}")
             continue
         #if mtime != today:
         #    continue
 
         txt_path = analysis.with_name(analysis.name.replace(".analysis.txt", ".txt"))
         exp_path = txt_path.with_suffix(".exp.txt")
-        if not txt_path.is_file() or exp_path.is_file():
+        if not txt_path.is_file():
+            print(f"[BATCH] Text file missing for {analysis}")
+            continue
+        if exp_path.is_file():
+            print(f"[BATCH] Experiment already exists for {txt_path}")
             continue
 
         design_experiment_for_file(txt_path, char_file=char_file)
         schematize_experiment(exp_path)
         processed.append(txt_path)
+        print(f"[BATCH] Completed processing for {txt_path}")
 
     if processed:
+        print(f"[BATCH] {len(processed)} file(s) processed; updating wellplate")
         try:
             with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
                 articles = json.load(fh)
+            print(f"[BATCH] Loaded article metadata from {_ARTICLES_JSON}")
         except Exception as exc:
-            print(f"Failed to read articles JSON: {exc}")
+            print(f"[BATCH] Failed to read articles JSON: {exc}")
             articles = {}
 
         scores = {}
@@ -1521,6 +1542,7 @@ def design_experiments_from_analyses(
         ordered = sorted(processed, key=_score, reverse=True)
 
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
+        print(f"[BATCH] Writing wellplate to {wellplate}")
         total = 0
         try:
             with wellplate.open("w", encoding="utf-8") as wh:
@@ -1544,6 +1566,8 @@ def design_experiments_from_analyses(
         except Exception as exc:
             print(f"Failed to create wellplate file: {exc}")
 
+        print(f"[BATCH] Wrote {total} insert(s) to wellplate")
+
     return processed
 
 
@@ -1557,10 +1581,12 @@ def schematize_experiment(
     suffix."""
 
     exp_path = Path(exp_file)
+    print(f"[SCHEMA] Schematizing experiment {exp_path}")
     try:
         exp_text = exp_path.read_text(encoding="utf-8")
+        print(f"[SCHEMA] Read {len(exp_text)} characters from {exp_path}")
     except Exception as exc:
-        print(f"Failed to read experiment text: {exc}")
+        print(f"[SCHEMA] Failed to read experiment text: {exc}")
         return ""
 
     # Only send the first paragraph of the experiment text to the LLM
@@ -1573,8 +1599,9 @@ def schematize_experiment(
         brain = core.get("prompts", {}).get("brain", {})
         pre = brain.get("schematizer_preamble", "")
         post = brain.get("schematizer_postamble", "")
+        print("[SCHEMA] Loaded schematizer prompts")
     except Exception as exc:
-        print(f"Failed to load schematizer prompts: {exc}")
+        print(f"[SCHEMA] Failed to load schematizer prompts: {exc}")
         pre = ""
         post = ""
 
@@ -1582,10 +1609,12 @@ def schematize_experiment(
     if Path(schema_file).is_file():
         try:
             schema_text = Path(schema_file).read_text(encoding="utf-8")
+            print(f"[SCHEMA] Loaded schema template from {schema_file}")
         except Exception as exc:
-            print(f"Failed to read schema file: {exc}")
+            print(f"[SCHEMA] Failed to read schema file: {exc}")
 
     prompt = f"{pre}\n{schema_text.strip()}\n\n{post}".strip()
+    print(f"[SCHEMA] Prompt length: {len(prompt)} characters")
 
     client = openai.OpenAI()
     messages = [
@@ -1600,8 +1629,9 @@ def schematize_experiment(
             max_completion_tokens=20000,
         )
         row = resp.choices[0].message.content
+        print("[SCHEMA] Received schema from LLM")
     except Exception as exc:
-        print(f"LLM schematization failed: {exc}")
+        print(f"[SCHEMA] LLM schematization failed: {exc}")
         row = ""
 
     out_path = exp_path
@@ -1615,8 +1645,9 @@ def schematize_experiment(
     out_path = out_path.with_name(name + ".schema.txt")
     try:
         out_path.write_text(row, encoding="utf-8")
+        print(f"[SCHEMA] Saved schema to {out_path}")
     except Exception as exc:
-        print(f"Failed to save schema text: {exc}")
+        print(f"[SCHEMA] Failed to save schema text: {exc}")
 
     return row
 

@@ -365,7 +365,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
     """Ensure scheduled worker downloads a pending article."""
     calls = []
 
-    monkeypatch.setattr(cam, 'download_missing_pdfs', lambda max_articles=1: calls.append(max_articles))
+    monkeypatch.setattr(cam, 'download_missing_pdfs', lambda max_articles=20: calls.append(max_articles))
 
     class FakeDateTime(dt.datetime):
         @classmethod
@@ -383,7 +383,7 @@ def test_scheduled_agingcell_worker_fetches_all(monkeypatch):
     with pytest.raises(StopIteration):
         cam._scheduled_agingcell_worker()
 
-    assert calls == [1]
+    assert calls == [20]
 
 
 def test_scheduled_agingcell_worker_triggers_ocr(monkeypatch, tmp_path):
@@ -661,7 +661,7 @@ def test_manual_rss_worker(monkeypatch):
 def test_manual_pdf_worker(monkeypatch, tmp_path):
     downloads = []
     monkeypatch.setattr(cam.fft, "_PDF_DIR", tmp_path)
-    monkeypatch.setattr(cam, "download_missing_pdfs", lambda max_articles=1: downloads.append(max_articles))
+    monkeypatch.setattr(cam, "download_missing_pdfs", lambda max_articles=20: downloads.append(max_articles))
 
     created = tmp_path / "a.pdf"
     created.write_bytes(b"d")
@@ -695,7 +695,7 @@ def test_manual_pdf_worker(monkeypatch, tmp_path):
 
     cam._manual_pdf_worker()
 
-    assert downloads == [1]
+    assert downloads == [20]
     assert "analyzed" in processed
 
 

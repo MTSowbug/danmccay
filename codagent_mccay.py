@@ -1143,6 +1143,11 @@ def _scheduled_pdf_worker():
             time.sleep(60)
 
 
+def _scheduled_agingcell_worker():
+    """Backward-compatible wrapper for the Aging Cell scheduled worker."""
+    _scheduled_pdf_worker()
+
+
 def _scheduled_experiment_worker():
     """Design experiments for OCR articles each morning at 8 AM."""
 
