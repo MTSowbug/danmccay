@@ -1561,8 +1561,8 @@ def design_experiments_from_analyses(
                         continue
                     wh.write(schema_text.strip() + "\n")
                     total += len(inserts)
-                    if total >= 12:
-                        break
+                    #if total >= 12:
+                    #    break
         except Exception as exc:
             print(f"Failed to create wellplate file: {exc}")
 
