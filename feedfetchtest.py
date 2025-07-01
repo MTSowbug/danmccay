@@ -1541,32 +1541,83 @@ def design_experiments_from_analyses(
 
         ordered = sorted(processed, key=_score, reverse=True)
 
+        def _extract_rows(sql: str) -> list[str]:
+            """Return a list of individual ``INSERT`` row strings."""
+
+            stmts = re.findall(r"INSERT\s+INTO[^;]*;", sql, flags=re.I | re.S)
+            rows: list[str] = []
+            for stmt in stmts:
+                stmt = stmt.strip().rstrip(";")
+                if "values" in stmt.lower():
+                    head, tail = re.split(r"(?i)values", stmt, maxsplit=1)
+                    values = tail.strip()
+                    groups = re.findall(r"\([^)]*\)", values)
+                    if not groups:
+                        groups = [values]
+                    for g in groups:
+                        rows.append(f"{head.strip()} VALUES {g}")
+                else:
+                    rows.append(stmt)
+            return rows
+
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
         print(f"[BATCH] Writing wellplate to {wellplate}")
+
+        seen: set[str] = set()
+        base_rows: list[str] = []
         total = 0
+
+        for txt_path in ordered:
+            schema_path = txt_path.with_suffix(".schema.txt")
+            if not schema_path.is_file():
+                continue
+            try:
+                schema_text = schema_path.read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            rows = [r for r in _extract_rows(schema_text) if r.strip()]
+            unique = []
+            file_seen: set[str] = set()
+            for r in rows:
+                norm = r.strip().lower()
+                if norm not in seen and norm not in file_seen:
+                    unique.append(r)
+                    file_seen.add(norm)
+            if total + len(unique) > 12:
+                continue
+            for r in unique:
+                seen.add(r.strip().lower())
+                base = r.rstrip(";").strip()
+                base += " status='pending'"
+                base_rows.append(base)
+                total += 1
+                if total >= 12:
+                    break
+            if total >= 12:
+                break
+
+        mapping = [
+            ("A1", 1), ("A2", 5), ("A3", 8), ("A4", 12), ("A5", 1), ("A6", 11),
+            ("B1", 2), ("B2", 6), ("B3", 9), ("B4", 3), ("B5", 10), ("B6", 7),
+            ("C1", 3), ("C2", 7), ("C3", 10), ("C4", 5), ("C5", 4), ("C6", 12),
+            ("D1", 4), ("D2", 8), ("D3", 11), ("D4", 6), ("D5", 2), ("D6", 9),
+        ]
+
+        final_rows = []
+        for well, idx in mapping:
+            if 0 < idx <= len(base_rows):
+                row = base_rows[idx - 1].rstrip()
+                row = f"{row}, well={well};"
+                final_rows.append(row)
+
         try:
             with wellplate.open("w", encoding="utf-8") as wh:
-                for txt_path in ordered:
-                    schema_path = txt_path.with_suffix(".schema.txt")
-                    if not schema_path.is_file():
-                        continue
-                    try:
-                        schema_text = schema_path.read_text(encoding="utf-8")
-                    except Exception:
-                        continue
-                    inserts = re.findall(r"INSERT\s+INTO", schema_text, flags=re.I)
-                    if total + len(inserts) > 12:
-                        continue
-                    if not inserts:
-                        continue
-                    wh.write(schema_text.strip() + "\n")
-                    total += len(inserts)
-                    #if total >= 12:
-                    #    break
+                wh.write("\n".join(final_rows) + ("\n" if final_rows else ""))
         except Exception as exc:
             print(f"Failed to create wellplate file: {exc}")
 
-        print(f"[BATCH] Wrote {total} insert(s) to wellplate")
+        print(f"[BATCH] Wrote {len(final_rows)} insert(s) to wellplate")
 
     return processed
 
