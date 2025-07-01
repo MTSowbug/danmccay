@@ -1573,11 +1573,19 @@ def design_experiments_from_analyses(
                     rows.append(stmt)
             return rows
 
+        def _extract_alters(sql: str) -> list[str]:
+            """Return a list of ``ALTER TABLE`` statements."""
+
+            pattern = r"ALTER\s+(?:TABLE\s+)?trialsv2db[^;]*;"
+            alters = re.findall(pattern, sql, flags=re.I | re.S)
+            return [a.strip().rstrip(";") for a in alters]
+
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
         print(f"[BATCH] Writing wellplate to {wellplate}")
 
         seen: set[str] = set()
         base_rows: list[str] = []
+        alter_rows: list[str] = []
         total = 0
 
         for txt_path in ordered:
@@ -1590,16 +1598,27 @@ def design_experiments_from_analyses(
                 continue
 
             rows = [r for r in _extract_rows(schema_text) if r.strip()]
-            unique = []
+            alters = [r for r in _extract_alters(schema_text) if r.strip()]
+            unique_rows = []
+            unique_alters = []
             file_seen: set[str] = set()
             for r in rows:
                 norm = r.strip().lower()
                 if norm not in seen and norm not in file_seen:
-                    unique.append(r)
+                    unique_rows.append(r)
                     file_seen.add(norm)
-            if total + len(unique) > 12:
+            for r in alters:
+                norm = r.strip().lower()
+                if norm not in seen and norm not in file_seen:
+                    unique_alters.append(r)
+                    file_seen.add(norm)
+            if total + len(unique_rows) > 12:
                 continue
-            for r in unique:
+            for r in unique_alters:
+                seen.add(r.strip().lower())
+                alter_rows.append(r.rstrip(";").strip() + ";")
+
+            for r in unique_rows:
                 seen.add(r.strip().lower())
                 base = r.rstrip(";").strip()
                 base += " status='pending'"
@@ -1618,6 +1637,7 @@ def design_experiments_from_analyses(
         ]
 
         final_rows = []
+        final_rows.extend(alter_rows)
         for well, idx in mapping:
             if 0 < idx <= len(base_rows):
                 row = base_rows[idx - 1].rstrip()
@@ -1630,7 +1650,7 @@ def design_experiments_from_analyses(
         except Exception as exc:
             print(f"Failed to create wellplate file: {exc}")
 
-        print(f"[BATCH] Wrote {len(final_rows)} insert(s) to wellplate")
+        print(f"[BATCH] Wrote {len(final_rows)} statement(s) to wellplate")
 
     return processed
 
