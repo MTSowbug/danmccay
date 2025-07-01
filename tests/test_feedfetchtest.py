@@ -1538,7 +1538,11 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     assert set(out) == {txt1, txt2}
 
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
-    assert wellplate.read_text() == "INSERT INTO X;\n" * 10
+    expected = (
+        "INSERT INTO X status='pending', well=A1;\n"
+        "INSERT INTO X status='pending', well=A5;\n"
+    )
+    assert wellplate.read_text() == expected
 
 
 def test_schematize_experiment(monkeypatch, tmp_path):
