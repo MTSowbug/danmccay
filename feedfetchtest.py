@@ -1480,6 +1480,7 @@ def design_experiments_from_analyses(
     print(f"[BATCH] Designing experiments in {pdf_dir} using {char_file}")
 
     today = _dt.datetime.now().date()
+    week_ago = today - _dt.timedelta(days=7)
     processed: list[Path] = []
     analyses = list(Path(pdf_dir).glob("*.analysis.txt"))
     print(f"[BATCH] Found {len(analyses)} analysis file(s)")
@@ -1509,7 +1510,19 @@ def design_experiments_from_analyses(
         processed.append(txt_path)
         print(f"[BATCH] Completed processing for {txt_path}")
 
-    if processed:
+    candidates: set[Path] = set(processed)
+    for schema in Path(pdf_dir).glob("*.schema.txt"):
+        try:
+            mtime = _dt.datetime.fromtimestamp(schema.stat().st_mtime).date()
+        except Exception:
+            continue
+        if mtime < week_ago:
+            continue
+        base = schema.with_name(schema.name.replace(".schema.txt", ".txt"))
+        if base.is_file():
+            candidates.add(base)
+
+    if candidates:
         print(f"[BATCH] {len(processed)} file(s) processed; updating wellplate")
         try:
             with _ARTICLES_JSON.open("r", encoding="utf-8") as fh:
@@ -1539,7 +1552,7 @@ def design_experiments_from_analyses(
                 pdf_rel = pdf_rel.name
             return scores.get(str(pdf_rel), 0)
 
-        ordered = sorted(processed, key=_score, reverse=True)
+        ordered = sorted(candidates, key=lambda p: (-_score(p), p.name))
 
         def _extract_rows(sql: str) -> list[str]:
             """Return a list of individual ``INSERT`` row strings."""
