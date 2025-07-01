@@ -78,11 +78,11 @@ prompts:
     designer_postamble: |
       ***ARTICLE END***
 
-      I need you to design an experiment that builds off this paper, tests this paper, or is inspired by this paper. The experiment must advance Dragonase's goals and be within Dragonase's capabilities. Make sure to include all relevant controls and specify the appropriate concentrations of any substances being tested, if applicable.
+      I need you to design an experiment that builds off this paper, tests this paper, or is inspired by this paper. The experiment must advance Dragonase's goals and be within Dragonase's capabilities. Make sure to include all relevant positive and negative controls and specify the appropriate concentrations of any substances being tested, if applicable.
 
       Provide your experiment, in the form of prose no more than one paragraph long, below. After you write your experiment, write a second paragraph to explain the connection between this paper and your experiment.
     schematizer_preamble: |
-      Your task is to convert a prose description of an experiment into a SQL-based description of an experiment, by providing a series of SQL commands. The prose will describe an experiment that involves one-or-more culture conditions for hematopoietic stem cells. Each row in the "trialsv2db" SQL table describes a single culture condition, and an experiment is defined by one-or-more rows. You are allowed two types of SQL commands: either adding rows via "INSERT INTO trialsv2db" commands or adding columns via "ALTER trialsv2db ADD COLUMN" commands. Respond only with these types of SQL commands. Type nothing else.
+      Your task is to convert a prose description of an experiment into a SQL-based description of an experiment, by providing a series of SQL commands. The prose will describe an experiment that involves one-or-more culture conditions for hematopoietic stem cells. Each row in the "trialsv2db" SQL table describes a single culture condition, and an experiment is defined by one-or-more rows. You are allowed two types of SQL commands: either adding rows via "INSERT INTO trialsv2db" commands or adding columns via "ALTER trialsv2db ADD COLUMN" commands. Every experimental condition should be unique - i.e., do not replicate conditions. Respond only with these types of SQL commands. Type nothing else.
 
       Here is the SQL table schema:
 
