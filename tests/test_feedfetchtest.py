@@ -1602,6 +1602,55 @@ def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_pat
     assert wellplate.read_text() == expected
 
 
+def test_design_experiments_from_analyses_writes_alters(monkeypatch, tmp_path):
+    txt = tmp_path / "paper.txt"
+    txt.write_text("TXT", encoding="utf-8")
+    analysis = tmp_path / "paper.analysis.txt"
+    analysis.write_text("analysis", encoding="utf-8")
+
+    ts = dt.datetime(2024, 1, 1, 7, 0).timestamp()
+    os.utime(analysis, (ts, ts))
+
+    articles = {"A": {"pdf": "paper.pdf"}}
+    json_path = tmp_path / "articles.json"
+    json_path.write_text(json.dumps(articles))
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+    monkeypatch.setattr(fft, "_PDF_DIR", tmp_path)
+
+    def fake_design(p, char_file=None):
+        p.with_suffix(".exp.txt").write_text("EXP")
+        return "EXP"
+
+    def fake_schema(p):
+        out = p.with_name(p.name.replace(".exp.txt", ".schema.txt"))
+        out.write_text(
+            "ALTER trialsv2db ADD COLUMN foo INT;\nINSERT INTO trialsv2db VALUES (1);\n",
+            encoding="utf-8",
+        )
+        return "SCHEMA"
+
+    monkeypatch.setattr(fft, "design_experiment_for_file", fake_design)
+    monkeypatch.setattr(fft, "schematize_experiment", fake_schema)
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 1, 8, 0)
+
+    monkeypatch.setattr(fft._dt, "datetime", FakeDateTime)
+
+    out = fft.design_experiments_from_analyses(pdf_dir=tmp_path)
+    assert out == [txt]
+
+    wellplate = tmp_path / "2024-01-01_wellplate.txt"
+    expected = (
+        "ALTER trialsv2db ADD COLUMN foo INT;\n"
+        "INSERT INTO trialsv2db VALUES (1) status='pending', well=A1;\n"
+        "INSERT INTO trialsv2db VALUES (1) status='pending', well=A5;\n"
+    )
+    assert wellplate.read_text() == expected
+
+
 def test_schematize_experiment(monkeypatch, tmp_path):
     exp = tmp_path / "foo.exp.txt"
     exp.write_text("PROSE", encoding="utf-8")
