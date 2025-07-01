@@ -1545,6 +1545,63 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
     assert wellplate.read_text() == expected
 
 
+def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_path):
+    txt_new = tmp_path / "new.txt"
+    txt_new.write_text("NEW", encoding="utf-8")
+    analysis_new = tmp_path / "new.analysis.txt"
+    analysis_new.write_text("analysis", encoding="utf-8")
+
+    txt_old = tmp_path / "old.txt"
+    txt_old.write_text("OLD", encoding="utf-8")
+    schema_old = tmp_path / "old.schema.txt"
+    schema_old.write_text("INSERT INTO OLD;\n", encoding="utf-8")
+    ts_old = dt.datetime(2024, 1, 7, 8, 0).timestamp()
+    os.utime(schema_old, (ts_old, ts_old))
+
+    ts_new = dt.datetime(2024, 1, 8, 7, 0).timestamp()
+    os.utime(analysis_new, (ts_new, ts_new))
+
+    articles = {
+        "A": {"pdf": "new.pdf"},
+        "B": {"pdf": "old.pdf"},
+    }
+    json_path = tmp_path / "articles.json"
+    json_path.write_text(json.dumps(articles))
+    monkeypatch.setattr(fft, "_ARTICLES_JSON", json_path)
+    monkeypatch.setattr(fft, "_PDF_DIR", tmp_path)
+
+    def fake_design(p, char_file=None):
+        p.with_suffix(".exp.txt").write_text("EXP")
+        return "EXP"
+
+    def fake_schema(p):
+        out = p.with_name(p.name.replace(".exp.txt", ".schema.txt"))
+        out.write_text("INSERT INTO NEW;\n", encoding="utf-8")
+        return "SCHEMA"
+
+    monkeypatch.setattr(fft, "design_experiment_for_file", fake_design)
+    monkeypatch.setattr(fft, "schematize_experiment", fake_schema)
+
+    class FakeDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2024, 1, 8, 8, 0)
+
+    monkeypatch.setattr(fft._dt, "datetime", FakeDateTime)
+
+    out = fft.design_experiments_from_analyses(pdf_dir=tmp_path)
+    assert out == [txt_new]
+
+    wellplate = tmp_path / "2024-01-08_wellplate.txt"
+    expected = (
+        "INSERT INTO NEW status='pending', well=A1;\n"
+        "INSERT INTO NEW status='pending', well=A5;\n"
+        "INSERT INTO OLD status='pending', well=B1;\n"
+        "INSERT INTO OLD status='pending', well=D5;\n"
+    )
+    assert wellplate.read_text() == expected
+
+
 def test_schematize_experiment(monkeypatch, tmp_path):
     exp = tmp_path / "foo.exp.txt"
     exp.write_text("PROSE", encoding="utf-8")
