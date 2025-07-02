@@ -1580,6 +1580,17 @@ def design_experiments_from_analyses(
             alters = re.findall(pattern, sql, flags=re.I | re.S)
             return [a.strip().rstrip(";") for a in alters]
 
+        def _append_column_value(stmt: str, column: str, value: str) -> str:
+            """Return *stmt* with ``column`` and ``value`` appended."""
+            pattern = r"(?i)(insert\s+into\s+trialsv2db)(?:\s*\(([^)]*)\))?\s*values\s*\(([^)]*)\)"
+            m = re.match(pattern, stmt.strip())
+            if not m:
+                return stmt
+            prefix, cols, vals = m.groups()
+            cols = ", ".join(filter(None, [cols.strip() if cols else "", column]))
+            vals = ", ".join(filter(None, [vals.strip(), value]))
+            return f"{prefix}({cols}) VALUES ({vals})"
+
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
         print(f"[BATCH] Writing wellplate to {wellplate}")
 
@@ -1620,8 +1631,7 @@ def design_experiments_from_analyses(
 
             for r in unique_rows:
                 seen.add(r.strip().lower())
-                base = r.rstrip(";").strip()
-                base += " status='pending'"
+                base = _append_column_value(r.rstrip(";").strip(), "status", "'pending'")
                 base_rows.append(base)
                 total += 1
                 if total >= 12:
@@ -1640,9 +1650,8 @@ def design_experiments_from_analyses(
         final_rows.extend(alter_rows)
         for well, idx in mapping:
             if 0 < idx <= len(base_rows):
-                row = base_rows[idx - 1].rstrip()
-                row = f"{row}, well={well};"
-                final_rows.append(row)
+                row = _append_column_value(base_rows[idx - 1].rstrip(), "well", f"'{well}'")
+                final_rows.append(row.rstrip() + ";")
 
         try:
             with wellplate.open("w", encoding="utf-8") as wh:

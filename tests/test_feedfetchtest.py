@@ -1515,9 +1515,15 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
             name = name[: -len(".exp")]
         out = p.with_name(name + ".schema.txt")
         if "paper" in p.name:
-            out.write_text("INSERT INTO X;\nINSERT INTO X;\nINSERT INTO X;\n")
+            out.write_text(
+                "INSERT INTO trialsv2db(foo) VALUES (1);\n" * 3,
+                encoding="utf-8",
+            )
         else:
-            out.write_text("INSERT INTO X;\n" * 10)
+            out.write_text(
+                "INSERT INTO trialsv2db(foo) VALUES (1);\n" * 10,
+                encoding="utf-8",
+            )
         return "SCHEMA"
 
     monkeypatch.setattr(fft, "design_experiment_for_file", fake_design)
@@ -1539,8 +1545,8 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
 
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
     expected = (
-        "INSERT INTO X status='pending', well=A1;\n"
-        "INSERT INTO X status='pending', well=A5;\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'A5');\n"
     )
     assert wellplate.read_text() == expected
 
@@ -1554,7 +1560,9 @@ def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_pat
     txt_old = tmp_path / "old.txt"
     txt_old.write_text("OLD", encoding="utf-8")
     schema_old = tmp_path / "old.schema.txt"
-    schema_old.write_text("INSERT INTO OLD;\n", encoding="utf-8")
+    schema_old.write_text(
+        "INSERT INTO trialsv2db(foo) VALUES (1);\n", encoding="utf-8"
+    )
     ts_old = dt.datetime(2024, 1, 7, 8, 0).timestamp()
     os.utime(schema_old, (ts_old, ts_old))
 
@@ -1576,7 +1584,7 @@ def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_pat
 
     def fake_schema(p):
         out = p.with_name(p.name.replace(".exp.txt", ".schema.txt"))
-        out.write_text("INSERT INTO NEW;\n", encoding="utf-8")
+        out.write_text("INSERT INTO trialsv2db(foo) VALUES (2);\n", encoding="utf-8")
         return "SCHEMA"
 
     monkeypatch.setattr(fft, "design_experiment_for_file", fake_design)
@@ -1594,10 +1602,10 @@ def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_pat
 
     wellplate = tmp_path / "2024-01-08_wellplate.txt"
     expected = (
-        "INSERT INTO NEW status='pending', well=A1;\n"
-        "INSERT INTO NEW status='pending', well=A5;\n"
-        "INSERT INTO OLD status='pending', well=B1;\n"
-        "INSERT INTO OLD status='pending', well=D5;\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (2, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (2, 'pending', 'A5');\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'B1');\n"
+        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'D5');\n"
     )
     assert wellplate.read_text() == expected
 
@@ -1645,8 +1653,8 @@ def test_design_experiments_from_analyses_writes_alters(monkeypatch, tmp_path):
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
     expected = (
         "ALTER trialsv2db ADD COLUMN foo INT;\n"
-        "INSERT INTO trialsv2db VALUES (1) status='pending', well=A1;\n"
-        "INSERT INTO trialsv2db VALUES (1) status='pending', well=A5;\n"
+        "INSERT INTO trialsv2db(status, well) VALUES (1, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(status, well) VALUES (1, 'pending', 'A5');\n"
     )
     assert wellplate.read_text() == expected
 
