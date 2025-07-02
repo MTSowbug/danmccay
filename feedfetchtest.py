@@ -1591,6 +1591,31 @@ def design_experiments_from_analyses(
             vals = ", ".join(filter(None, [vals.strip(), value]))
             return f"{prefix}({cols}) VALUES ({vals})"
 
+        def _backtick_columns(sql: str) -> str:
+            """Return *sql* with all column names wrapped in backticks."""
+
+            def _bt(name: str) -> str:
+                name = name.strip()
+                if not name:
+                    return name
+                if name.startswith("`") and name.endswith("`"):
+                    return name
+                return f"`{name.strip('`')}" + "`"
+
+            insert_pat = re.search(r"(?i)insert\s+into\s+trialsv2db\s*\(([^)]*)\)", sql)
+            if insert_pat:
+                cols = insert_pat.group(1)
+                col_list = [c.strip() for c in cols.split(',') if c.strip()]
+                cols_bt = ", ".join(_bt(c) for c in col_list)
+                sql = sql[: insert_pat.start(1)] + cols_bt + sql[insert_pat.end(1):]
+
+            alter_pat = re.search(r"(?i)(alter\s+(?:table\s+)?trialsv2db\s+add\s+column\s+)([^\s]+)", sql)
+            if alter_pat:
+                col = alter_pat.group(2)
+                sql = sql[: alter_pat.start(2)] + _bt(col) + sql[alter_pat.end(2):]
+
+            return sql
+
         wellplate = Path(pdf_dir) / f"{today.isoformat()}_wellplate.txt"
         print(f"[BATCH] Writing wellplate to {wellplate}")
 
@@ -1608,8 +1633,8 @@ def design_experiments_from_analyses(
             except Exception:
                 continue
 
-            rows = [r for r in _extract_rows(schema_text) if r.strip()]
-            alters = [r for r in _extract_alters(schema_text) if r.strip()]
+            rows = [_backtick_columns(r) for r in _extract_rows(schema_text) if r.strip()]
+            alters = [_backtick_columns(r) for r in _extract_alters(schema_text) if r.strip()]
             unique_rows = []
             unique_alters = []
             file_seen: set[str] = set()
@@ -1627,12 +1652,12 @@ def design_experiments_from_analyses(
                 continue
             for r in unique_alters:
                 seen.add(r.strip().lower())
-                alter_rows.append(r.rstrip(";").strip() + ";")
+                alter_rows.append(_backtick_columns(r.rstrip(";").strip()) + ";")
 
             for r in unique_rows:
                 seen.add(r.strip().lower())
                 base = _append_column_value(r.rstrip(";").strip(), "status", "'pending'")
-                base_rows.append(base)
+                base_rows.append(_backtick_columns(base))
                 total += 1
                 if total >= 12:
                     break
@@ -1651,7 +1676,7 @@ def design_experiments_from_analyses(
         for well, idx in mapping:
             if 0 < idx <= len(base_rows):
                 row = _append_column_value(base_rows[idx - 1].rstrip(), "well", f"'{well}'")
-                final_rows.append(row.rstrip() + ";")
+                final_rows.append(_backtick_columns(row).rstrip() + ";")
 
         try:
             with wellplate.open("w", encoding="utf-8") as wh:

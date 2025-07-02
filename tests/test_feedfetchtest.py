@@ -1545,8 +1545,8 @@ def test_design_experiments_from_analyses(monkeypatch, tmp_path):
 
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
     expected = (
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'A1');\n"
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'A5');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (1, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (1, 'pending', 'A5');\n"
     )
     assert wellplate.read_text() == expected
 
@@ -1602,10 +1602,10 @@ def test_design_experiments_from_analyses_includes_previous(monkeypatch, tmp_pat
 
     wellplate = tmp_path / "2024-01-08_wellplate.txt"
     expected = (
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (2, 'pending', 'A1');\n"
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (2, 'pending', 'A5');\n"
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'B1');\n"
-        "INSERT INTO trialsv2db(foo, status, well) VALUES (1, 'pending', 'D5');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (2, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (2, 'pending', 'A5');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (1, 'pending', 'B1');\n"
+        "INSERT INTO trialsv2db(`foo`, `status`, `well`) VALUES (1, 'pending', 'D5');\n"
     )
     assert wellplate.read_text() == expected
 
@@ -1652,9 +1652,9 @@ def test_design_experiments_from_analyses_writes_alters(monkeypatch, tmp_path):
 
     wellplate = tmp_path / "2024-01-01_wellplate.txt"
     expected = (
-        "ALTER trialsv2db ADD COLUMN foo INT;\n"
-        "INSERT INTO trialsv2db(status, well) VALUES (1, 'pending', 'A1');\n"
-        "INSERT INTO trialsv2db(status, well) VALUES (1, 'pending', 'A5');\n"
+        "ALTER trialsv2db ADD COLUMN `foo` INT;\n"
+        "INSERT INTO trialsv2db(`status`, `well`) VALUES (1, 'pending', 'A1');\n"
+        "INSERT INTO trialsv2db(`status`, `well`) VALUES (1, 'pending', 'A5');\n"
     )
     assert wellplate.read_text() == expected
 
