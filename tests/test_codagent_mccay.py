@@ -727,8 +727,9 @@ def test_fingerprint_command(monkeypatch, capsys):
             print(maccs_fp)
             print(topo_fp)
             print(morgan_fp)
-            all_fp = "\n".join([maccs_fp, topo_fp, morgan_fp])
-            cam.send_command(None, f"say {all_fp}")
+            cam._say_lines(None, maccs_fp)
+            cam._say_lines(None, topo_fp)
+            cam._say_lines(None, morgan_fp)
         except Exception:
             pass
 
@@ -738,6 +739,8 @@ def test_fingerprint_command(monkeypatch, capsys):
     assert "1" in captured.out
     expected = [
         "emote examines the chemical structure.",
-        "say 101\n01\n1",
+        "say 101",
+        "say 01",
+        "say 1",
     ]
     assert sent == expected

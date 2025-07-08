@@ -2006,8 +2006,13 @@ lambda chardata: (
                     print(maccs_fp)
                     print(topo_fp)
                     print(morgan_fp)
-                    full = "\n".join([maccs_fp, topo_fp, morgan_fp])
-                    send_command(tn, f"say {full}")
+
+                    # Speak each fingerprint separately to avoid exceeding
+                    # line length limits or including newlines in a single
+                    # command, which can disconnect us from the MUD.
+                    _say_lines(tn, maccs_fp)
+                    _say_lines(tn, topo_fp)
+                    _say_lines(tn, morgan_fp)
                 except Exception as exc:
                     print(f"Fingerprint generation failed: {exc}")
                 continue
