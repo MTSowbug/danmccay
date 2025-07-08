@@ -2,11 +2,12 @@ import numpy as np
 
 try:  # optional rdkit dependency
     from rdkit import Chem
-    from rdkit.Chem import MACCSkeys
+    from rdkit.Chem import MACCSkeys, AllChem
     _HAVE_RDKIT = True
 except Exception:  # pragma: no cover - rdkit unavailable
     Chem = None
     MACCSkeys = None
+    AllChem = None
     _HAVE_RDKIT = False
 
 
@@ -80,6 +81,45 @@ def topological_fingerprint(smiles: str, n_bits: int = 2048) -> np.ndarray:
         fp = np.zeros(n_bits, dtype=int)
         for i, ch in enumerate(smiles):
             pos = (i * 17 + ord(ch)) % n_bits
+            fp[pos] = 1
+
+    return fp
+
+
+def morgan_fingerprint(smiles: str, n_bits: int = 2048) -> np.ndarray:
+    """Return a Morgan fingerprint for a molecule.
+
+    This uses RDKit's :func:`AllChem.GetMorganFingerprintAsBitVect` when
+    available. When RDKit is not installed, a simple hash-based fallback is
+    used so the function still returns a deterministic array for testing.
+
+    Parameters
+    ----------
+    smiles : str
+        SMILES representation of the molecule.
+    n_bits : int
+        Length of the fingerprint to generate.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of 0/1 integers representing the fingerprint.
+    """
+
+    if _HAVE_RDKIT:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            fp = np.zeros(n_bits, dtype=int)
+        else:
+            fp = np.array(
+                AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=n_bits),
+                dtype=int,
+            )
+    else:  # pragma: no cover - rdkit unavailable
+        # Fallback hashing so tests can run without RDKit
+        fp = np.zeros(n_bits, dtype=int)
+        for i, ch in enumerate(smiles):
+            pos = (i * 13 + ord(ch)) % n_bits
             fp[pos] = 1
 
     return fp
