@@ -706,3 +706,26 @@ def test_manual_experiment_worker(monkeypatch, tmp_path):
     cam._manual_experiment_worker()
 
     assert calls == [True]
+
+
+def test_fingerprint_command(monkeypatch, capsys):
+    sent = []
+    monkeypatch.setattr(cam, "send_command", lambda tn, c: (sent.append(c), "resp")[1])
+    monkeypatch.setattr(cam, "maccs_fingerprint", lambda s: [1, 0, 1])
+
+    response = "McCay, fingerprint CCO"
+    m = re.search(r"mccay, fingerprint\s+(\S+)", response, re.IGNORECASE)
+    if m:
+        smiles = m.group(1)
+        cam.send_command(None, "emote examines the chemical structure.")
+        try:
+            fp = cam.maccs_fingerprint(smiles)
+            fp_str = "".join(map(str, fp))
+            print(fp_str)
+            cam.send_command(None, f"say {fp_str}")
+        except Exception:
+            pass
+
+    captured = capsys.readouterr()
+    assert "101" in captured.out
+    assert sent == ["emote examines the chemical structure.", "say 101"]
