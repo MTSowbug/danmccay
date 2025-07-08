@@ -47,3 +47,39 @@ def maccs_fingerprint(smiles: str, n_bits: int = 167) -> np.ndarray:
     else:
         fp = fp[:n_bits]
     return fp
+
+
+def topological_fingerprint(smiles: str, n_bits: int = 2048) -> np.ndarray:
+    """Return a topological fingerprint for a molecule.
+
+    This uses RDKit's :func:`Chem.RDKFingerprint` when available. When RDKit
+    is not installed, a simple hash-based approach is used so the function
+    still returns a deterministic array for testing.
+
+    Parameters
+    ----------
+    smiles : str
+        SMILES representation of the molecule.
+    n_bits : int
+        Length of the fingerprint to generate.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of 0/1 integers representing the fingerprint.
+    """
+
+    if _HAVE_RDKIT:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            fp = np.zeros(n_bits, dtype=int)
+        else:
+            fp = np.array(Chem.RDKFingerprint(mol, fpSize=n_bits), dtype=int)
+    else:  # pragma: no cover - rdkit unavailable
+        # Fallback hashing so tests can run without RDKit
+        fp = np.zeros(n_bits, dtype=int)
+        for i, ch in enumerate(smiles):
+            pos = (i * 17 + ord(ch)) % n_bits
+            fp[pos] = 1
+
+    return fp
