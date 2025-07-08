@@ -38,7 +38,11 @@ import feedfetchtest as fft
 from pathlib import Path
 import multiprocessing
 import threading
-from fingerprinting import maccs_fingerprint
+from fingerprinting import (
+    maccs_fingerprint,
+    topological_fingerprint,
+    morgan_fingerprint,
+)
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 import urllib.request
 
@@ -1996,10 +2000,14 @@ lambda chardata: (
                 smiles = m.group(1)
                 response = send_command(tn, "emote examines the chemical structure.")
                 try:
-                    fp = maccs_fingerprint(smiles)
-                    fp_str = ''.join(map(str, fp.astype(int)))
-                    print(fp_str)
-                    send_command(tn, f"say {fp_str}")
+                    maccs_fp = ''.join(map(str, maccs_fingerprint(smiles).astype(int)))
+                    topo_fp = ''.join(map(str, topological_fingerprint(smiles).astype(int)))
+                    morgan_fp = ''.join(map(str, morgan_fingerprint(smiles).astype(int)))
+                    print(maccs_fp)
+                    print(topo_fp)
+                    print(morgan_fp)
+                    full = "\n".join([maccs_fp, topo_fp, morgan_fp])
+                    send_command(tn, f"say {full}")
                 except Exception as exc:
                     print(f"Fingerprint generation failed: {exc}")
                 continue
