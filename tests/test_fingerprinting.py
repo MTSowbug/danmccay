@@ -1,6 +1,10 @@
 import os, sys; sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import numpy as np
-from fingerprinting import maccs_fingerprint, topological_fingerprint
+from fingerprinting import (
+    maccs_fingerprint,
+    topological_fingerprint,
+    morgan_fingerprint,
+)
 
 
 def test_maccs_fingerprint_basic():
@@ -33,3 +37,18 @@ def test_topological_fingerprint_various_lengths():
     fp_large = topological_fingerprint('CCO', 128)
     assert len(fp_small) == 32
     assert len(fp_large) == 128
+
+
+def test_morgan_fingerprint_basic():
+    fp = morgan_fingerprint('CCO', 128)
+    assert isinstance(fp, np.ndarray)
+    assert len(fp) == 128
+    assert fp.dtype == int
+    assert fp.sum() > 0
+
+
+def test_morgan_fingerprint_various_lengths():
+    fp_small = morgan_fingerprint('CCO', 64)
+    fp_large = morgan_fingerprint('CCO', 256)
+    assert len(fp_small) == 64
+    assert len(fp_large) == 256
