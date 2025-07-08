@@ -38,6 +38,7 @@ import feedfetchtest as fft
 from pathlib import Path
 import multiprocessing
 import threading
+from fingerprinting import maccs_fingerprint
 from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
 import urllib.request
 
@@ -1990,6 +1991,17 @@ lambda chardata: (
                         print("[OCR] Could not parse filename from command.")
                 except Exception as exc:
                     print(f"[OCR] OCR failed: {exc}")
+                continue
+            elif m := re.search(r"mccay, fingerprint\s+(\S+)", response, re.IGNORECASE):
+                smiles = m.group(1)
+                response = send_command(tn, "emote examines the chemical structure.")
+                try:
+                    fp = maccs_fingerprint(smiles)
+                    fp_str = ''.join(map(str, fp.astype(int)))
+                    print(fp_str)
+                    send_command(tn, f"say {fp_str}")
+                except Exception as exc:
+                    print(f"Fingerprint generation failed: {exc}")
                 continue
             elif "mccay, let's chat" in response.lower():
                 response = send_command(tn, "emote looks up from his notes.")
