@@ -48,6 +48,13 @@ _BASE_DIR = Path(__file__).resolve().parent
 _PDF_DIR = (_BASE_DIR / "../pdfs").resolve()
 _ARTICLES_JSON = _PDF_DIR / "articles.json"
 
+
+def _debug(message: str) -> None:
+    """Emit a timestamped debug message for troubleshooting."""
+
+    timestamp = _dt.datetime.now().isoformat(timespec="seconds")
+    print(f"[feedfetchtest {timestamp}] {message}")
+
 # Ensure a default articles store exists for convenience
 _PDF_DIR.mkdir(parents=True, exist_ok=True)
 if not _ARTICLES_JSON.is_file():
@@ -71,16 +78,40 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
     """Write *articles* to *output_path*, merging with any existing data."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     existing: Dict[str, dict] = {}
+    existing_count = 0
     if output_path.is_file():
         with output_path.open("r", encoding="utf-8") as fh:
             try:
                 existing = json.load(fh)
-            except Exception:
+                existing_count = len(existing)
+            except Exception as exc:
+                _debug(
+                    f"Failed to load existing JSON from {output_path}: {exc}. "
+                    "Proceeding with an empty store."
+                )
                 existing = {}
+                existing_count = 0
 
+    new_keys = [key for key in articles if key not in existing]
+    updated_keys = [key for key in articles if key in existing]
     existing.update(articles)
+    _debug(
+        "Merging articles into {path}. Incoming: {incoming} (new: {new}, updated: {updated}). "
+        "Existing entries before merge: {before}. Total after merge: {after}.".format(
+            path=output_path,
+            incoming=len(articles),
+            new=len(new_keys),
+            updated=len(updated_keys),
+            before=existing_count,
+            after=len(existing),
+        )
+    )
     with output_path.open("w", encoding="utf-8") as fh:
         json.dump(existing, fh, indent=2, sort_keys=True)
+    _debug(
+        f"Finished writing {len(existing)} articles to {output_path}. "
+        f"File size is now {output_path.stat().st_size} bytes."
+    )
 
 
 def _extract_feed_urls(opml_source: str | Path, with_titles: bool = False) -> List:
@@ -98,6 +129,11 @@ def _extract_feed_urls(opml_source: str | Path, with_titles: bool = False) -> Li
         for node in tree.iter("outline")
         if node.attrib.get("type") == "rss"
     ]
+    _debug(
+        "Extracted {count} feeds from {source}".format(
+            count=len(feeds), source=opml_source
+        )
+    )
     if with_titles:
         return feeds
     return [url for url, _ in feeds]
@@ -955,15 +991,40 @@ def fetch_recent_articles(
     cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=hours)
     articles: Dict[str, dict] = {}
 
-    print("Fetching...")
+    _debug(
+        "Starting fetch_recent_articles with opml_source={source}, hours={hours}, "
+        "download_pdfs={download}, json_path={json}. Cutoff timestamp: {cutoff}.".format(
+            source=opml_source,
+            hours=hours,
+            download=download_pdfs,
+            json=json_path,
+            cutoff=cutoff.isoformat(),
+        )
+    )
+
     for feed_url, rss_title in _extract_feed_urls(opml_source, with_titles=True):
         parsed = _fp.parse(feed_url)
-        print(feed_url)
+        total_entries = len(getattr(parsed, "entries", []))
+        _debug(
+            "Processing feed '{title}' ({url}). Total entries: {total}.".format(
+                title=rss_title or "<untitled>", url=feed_url, total=total_entries
+            )
+        )
+        if getattr(parsed, "bozo", False):
+            _debug(
+                "Feedparser reported an issue with {url}: {error}".format(
+                    url=feed_url,
+                    error=getattr(parsed, "bozo_exception", "unknown error"),
+                )
+            )
+
+        matched_entries = 0
 
         for entry in parsed.entries:
             ts = _entry_timestamp(entry)
             if ts is None or ts < cutoff:
                 continue
+            matched_entries += 1
 
             # Compose a unique, deterministic key
             key = f"{entry.get('id', entry.link)}"
@@ -993,9 +1054,23 @@ def fetch_recent_articles(
                 time.sleep(random.uniform(5, 10))
             print(entry.title)
 
-    if json_path is not None:
-        _save_articles(articles, Path(json_path))
+        _debug(
+            "Feed '{title}' contributed {matched} entries newer than cutoff.".format(
+                title=rss_title or "<untitled>", matched=matched_entries
+            )
+        )
 
+    if json_path is not None:
+        _debug(
+            f"Completed aggregation of {len(articles)} articles. Writing to {json_path}."
+        )
+        _save_articles(articles, Path(json_path))
+    else:
+        _debug(
+            f"Completed aggregation of {len(articles)} articles. Skipping write step."
+        )
+
+    _debug(f"fetch_recent_articles returning {len(articles)} articles.")
     return articles
 
 
