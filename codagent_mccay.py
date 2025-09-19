@@ -1842,7 +1842,29 @@ lambda chardata: (
                 response = send_command(tn, "emote gets to work on his daily RSS feed.")
                 try:
                     print("Running daily RSS fetch...")
-                    fetch_recent_articles("mccayfeeds.opml", hours=24, download_pdfs=False)
+                    articles = fetch_recent_articles(
+                        "mccayfeeds.opml", hours=24, download_pdfs=False
+                    )
+                    print(
+                        "Daily RSS fetch complete. {count} articles returned. "
+                        "articles.json path: {path}".format(
+                            count=len(articles), path=fft._ARTICLES_JSON
+                        )
+                    )
+                    if fft._ARTICLES_JSON.exists():
+                        stats = fft._ARTICLES_JSON.stat()
+                        print(
+                            "articles.json exists (size: {size} bytes, modified: {mtime}).".format(
+                                size=stats.st_size,
+                                mtime=dt.datetime.fromtimestamp(
+                                    stats.st_mtime
+                                ).isoformat(timespec="seconds"),
+                            )
+                        )
+                    else:
+                        print(
+                            f"articles.json not found at expected location: {fft._ARTICLES_JSON}"
+                        )
                 except Exception as exc:
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
@@ -1852,7 +1874,29 @@ lambda chardata: (
                 response = send_command(tn, "emote gets to work on his weekly RSS feed.")
                 try:
                     print("Running weeklong RSS fetch...")
-                    fetch_recent_articles("mccayfeeds.opml", hours=24*7, download_pdfs=False)
+                    articles = fetch_recent_articles(
+                        "mccayfeeds.opml", hours=24 * 7, download_pdfs=False
+                    )
+                    print(
+                        "Weeklong RSS fetch complete. {count} articles returned. "
+                        "articles.json path: {path}".format(
+                            count=len(articles), path=fft._ARTICLES_JSON
+                        )
+                    )
+                    if fft._ARTICLES_JSON.exists():
+                        stats = fft._ARTICLES_JSON.stat()
+                        print(
+                            "articles.json exists (size: {size} bytes, modified: {mtime}).".format(
+                                size=stats.st_size,
+                                mtime=dt.datetime.fromtimestamp(
+                                    stats.st_mtime
+                                ).isoformat(timespec="seconds"),
+                            )
+                        )
+                    else:
+                        print(
+                            f"articles.json not found at expected location: {fft._ARTICLES_JSON}"
+                        )
                 except Exception as exc:
                     print(f"RSS fetch failed: {exc}")
                 last_rss_date = dt.datetime.now().date()
