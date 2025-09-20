@@ -110,15 +110,38 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
                 existing = {}
                 existing_count = 0
 
-    new_keys = [key for key in articles if key not in existing]
-    updated_keys = [key for key in articles if key in existing]
-    existing.update(articles)
+    safe_articles = _json_safe_copy(articles)
+    if isinstance(articles, dict):
+        # Remove keys that disappeared during sanitization
+        for key in list(articles.keys()):
+            if key not in safe_articles:
+                del articles[key]
+
+        # Update existing entries in-place so external references remain valid
+        for key, safe_val in safe_articles.items():
+            if isinstance(articles.get(key), dict) and isinstance(safe_val, dict):
+                original = articles[key]
+                original.clear()
+                original.update(safe_val)
+            else:
+                articles[key] = safe_val
+
+    if not isinstance(safe_articles, dict):
+        _debug(
+            "Incoming article payload for {path} is not a mapping; "
+            "coercing to an empty dictionary.".format(path=output_path)
+        )
+        safe_articles = {}
+
+    new_keys = [key for key in safe_articles if key not in existing]
+    updated_keys = [key for key in safe_articles if key in existing]
+    existing.update(safe_articles)
     safe_existing = _json_safe_copy(existing)
     _debug(
         "Merging articles into {path}. Incoming: {incoming} (new: {new}, updated: {updated}). "
         "Existing entries before merge: {before}. Total after merge: {after}.".format(
             path=output_path,
-            incoming=len(articles),
+            incoming=len(safe_articles),
             new=len(new_keys),
             updated=len(updated_keys),
             before=existing_count,
@@ -126,7 +149,18 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
         )
     )
     with output_path.open("w", encoding="utf-8") as fh:
-        json.dump(safe_existing, fh, indent=2, sort_keys=True)
+        try:
+            json.dump(safe_existing, fh, indent=2, sort_keys=True)
+        except TypeError as exc:
+            _debug(
+                "Primary serialization for {path} failed due to {exc!s}; "
+                "retrying with best-effort string coercion.".format(
+                    path=output_path, exc=exc
+                )
+            )
+            fh.seek(0)
+            fh.truncate()
+            json.dump(safe_existing, fh, indent=2, sort_keys=True, default=str)
     _debug(
         f"Finished writing {len(safe_existing)} articles to {output_path}. "
         f"File size is now {output_path.stat().st_size} bytes."
