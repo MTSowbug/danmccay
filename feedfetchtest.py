@@ -60,17 +60,31 @@ _PDF_DIR.mkdir(parents=True, exist_ok=True)
 if not _ARTICLES_JSON.is_file():
     _ARTICLES_JSON.write_text("{}", encoding="utf-8")
 
+_COOKIE_JAR_PATH = _PDF_DIR / "jar.cookies"
+_COOKIE_JAR = cookiejar.MozillaCookieJar(str(_COOKIE_JAR_PATH))
+if _COOKIE_JAR_PATH.exists():
+    try:
+        _COOKIE_JAR.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+
+
+def _build_http_opener():
+    return urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(_COOKIE_JAR),
+        urllib.request.HTTPRedirectHandler(),
+    )
+
+
+_HTTP_OPENER = _build_http_opener()
+urllib.request.install_opener(_HTTP_OPENER)
+
 _HTTP_HEADERS = {
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/avif,image/webp,*/*;q=0.8"
-    ),
-    "Accept-Language": "en-US,en;q=0.5",
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64; rv:126.0) "
         "Gecko/20100101 Firefox/126.0"
     ),
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept": "*/*",
 }
 
 
@@ -377,23 +391,38 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         return ""
 
     client = openai.OpenAI()
-    cookie_jar = cookiejar.CookieJar()
-    opener = urllib.request.build_opener(
-        urllib.request.HTTPCookieProcessor(cookie_jar),
-        urllib.request.HTTPRedirectHandler(),
-    )
+    opener = _build_http_opener()
+    global _HTTP_OPENER
+    _HTTP_OPENER = opener
+    urllib.request.install_opener(opener)
 
     def _fetch(u: str) -> tuple[bytes, str, str]:
         req = urllib.request.Request(u, headers=_HTTP_HEADERS, method="GET")
         with opener.open(req, timeout=30) as resp:
-            raw = resp.read()
             ctype = resp.headers.get("Content-Type", "")
             enc = resp.headers.get("Content-Encoding", "").lower()
             final_url = resp.geturl()
-        if enc == "gzip":
-            raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
-        elif enc in {"br", "brotli"}:
-            raw = _brotli.decompress(raw)
+            if enc in {"gzip", "br", "brotli"}:
+                raw = resp.read()
+                if enc == "gzip":
+                    raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+                else:
+                    raw = _brotli.decompress(raw)
+            else:
+                try:
+                    chunks: list[bytes] = []
+                    while True:
+                        chunk = resp.read(1024 * 64)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                    raw = b"".join(chunks)
+                except TypeError:
+                    raw = resp.read()
+        try:
+            _COOKIE_JAR.save(ignore_discard=True, ignore_expires=True)
+        except Exception:
+            pass
         return raw, ctype, final_url
 
     visited = []
