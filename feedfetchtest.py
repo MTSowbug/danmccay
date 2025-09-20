@@ -61,12 +61,51 @@ if not _ARTICLES_JSON.is_file():
     _ARTICLES_JSON.write_text("{}", encoding="utf-8")
 
 _COOKIE_JAR_PATH = _PDF_DIR / "jar.cookies"
-_COOKIE_JAR = cookiejar.MozillaCookieJar(str(_COOKIE_JAR_PATH))
+_COOKIE_JAR = cookiejar.MozillaCookieJar()
 if _COOKIE_JAR_PATH.exists():
     try:
-        _COOKIE_JAR.load(ignore_discard=True, ignore_expires=True)
+        _COOKIE_JAR.load(
+            str(_COOKIE_JAR_PATH), ignore_discard=True, ignore_expires=True
+        )
     except Exception:
         pass
+
+
+def _next_cookie_snapshot_path(base_path: Path = _COOKIE_JAR_PATH) -> Path:
+    """Return a unique path for persisting a cookie snapshot."""
+
+    timestamp = _dt.datetime.now().strftime("%Y%m%dT%H%M%S")
+    suffix = f".{timestamp}"
+    candidate = base_path.with_name(f"{base_path.name}{suffix}")
+    counter = 0
+    while candidate.exists():
+        counter += 1
+        candidate = base_path.with_name(f"{base_path.name}{suffix}.{counter}")
+    return candidate
+
+
+def _persist_cookie_snapshot() -> Path | None:
+    """Persist cookies without modifying the original jar location."""
+
+    try:
+        destination = _next_cookie_snapshot_path()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        _COOKIE_JAR.save(
+            str(destination), ignore_discard=True, ignore_expires=True
+        )
+        _debug(
+            "Saved cookies to {destination} without overwriting {source}.".format(
+                destination=destination, source=_COOKIE_JAR_PATH
+            )
+        )
+        return destination
+    except Exception as exc:
+        _debug(
+            "Failed to persist cookies to an alternate file due to {exc!s}.".format(
+                exc=exc
+            )
+        )
+        return None
 
 
 def _build_http_opener():
@@ -419,10 +458,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                     raw = b"".join(chunks)
                 except TypeError:
                     raw = resp.read()
-        try:
-            _COOKIE_JAR.save(ignore_discard=True, ignore_expires=True)
-        except Exception:
-            pass
+        _persist_cookie_snapshot()
         return raw, ctype, final_url
 
     visited = []
