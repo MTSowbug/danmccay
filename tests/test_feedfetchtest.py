@@ -1340,7 +1340,10 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
 
     def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
         assert args[0] == "bash"
-        assert Path(args[1]).name == "pdf_fetch_generic.sh"
+        assert Path(args[1]).name in {
+            "pdf_fetch_generic.sh",
+            "pdf_fetch_generic_curl.sh",
+        }
         assert capture_output and text
         assert cwd == str(tmp_path)
         assert env is not None
@@ -1381,6 +1384,72 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     assert calls == ["http://example.com/dir/page.html", "http://example.com/dir/v15p6497.pdf"]
 
 
+def test_llm_shell_commands_uses_redirected_domain_for_relative(monkeypatch, tmp_path):
+    html = (
+        "<html><head>"
+        "<link rel='canonical' href='https://academic.oup.com/biomedgerontology/advance-article/doi/10.1093/gerona/glaf168/8258610'>"
+        "</head><body>"
+        "<a href='/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf'>PDF</a>"
+        "</body></html>"
+    )
+
+    calls: list[str] = []
+
+    def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
+        assert args[0] == "bash"
+        assert Path(args[1]).name in {
+            "pdf_fetch_generic.sh",
+            "pdf_fetch_generic_curl.sh",
+        }
+        assert cwd == str(tmp_path)
+        assert capture_output and text
+        assert env is not None
+        cookie_path = Path(env["PDF_FETCH_COOKIE_JAR"])
+        assert cookie_path.exists()
+        url = args[2]
+        calls.append(url)
+        out_path = Path(cwd) / "tempfile"
+        if len(calls) == 1:
+            out_path.write_text(html, encoding="utf-8")
+            stdout = ""
+        else:
+            out_path.write_bytes(b"%PDFDATA")
+            stdout = ""
+        return types.SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(fft.subprocess, "run", fake_run)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **_: types.SimpleNamespace(
+                        choices=[
+                            types.SimpleNamespace(
+                                message=types.SimpleNamespace(
+                                    content="/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf"
+                                )
+                            )
+                        ]
+                    )
+                )
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    class E:
+        link = "https://doi.org/10.1093/gerona/glaf168"
+
+    out = fft._llm_shell_commands(E(), tmp_path)
+    expected = (
+        "https://academic.oup.com/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf"
+    )
+    assert out == f"Downloaded {expected}"
+    pdf = tmp_path / "article_fulltext_version2.pdf"
+    assert pdf.exists()
+    assert calls == ["https://doi.org/10.1093/gerona/glaf168", expected]
+
+
 def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
     html1 = '<a href="next.html">Next</a>'
     html2 = '<a href="final.pdf">PDF</a>'
@@ -1389,7 +1458,10 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
 
     def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
         assert args[0] == "bash"
-        assert Path(args[1]).name == "pdf_fetch_generic.sh"
+        assert Path(args[1]).name in {
+            "pdf_fetch_generic.sh",
+            "pdf_fetch_generic_curl.sh",
+        }
         assert cwd == str(tmp_path)
         assert env is not None
         cookie_path = Path(env["PDF_FETCH_COOKIE_JAR"])
