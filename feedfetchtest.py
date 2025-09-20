@@ -74,6 +74,24 @@ _HTTP_HEADERS = {
 }
 
 
+def _json_safe_copy(value):
+    """Return *value* converted to JSON-serializable Python primitives."""
+
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (_dt.datetime, _dt.date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe_copy(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe_copy(item) for item in value]
+    if hasattr(value, "__dict__"):
+        return _json_safe_copy(vars(value))
+    return str(value)
+
+
 def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
     """Write *articles* to *output_path*, merging with any existing data."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,6 +113,7 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
     new_keys = [key for key in articles if key not in existing]
     updated_keys = [key for key in articles if key in existing]
     existing.update(articles)
+    safe_existing = _json_safe_copy(existing)
     _debug(
         "Merging articles into {path}. Incoming: {incoming} (new: {new}, updated: {updated}). "
         "Existing entries before merge: {before}. Total after merge: {after}.".format(
@@ -103,13 +122,13 @@ def _save_articles(articles: Dict[str, dict], output_path: Path) -> None:
             new=len(new_keys),
             updated=len(updated_keys),
             before=existing_count,
-            after=len(existing),
+            after=len(safe_existing),
         )
     )
     with output_path.open("w", encoding="utf-8") as fh:
-        json.dump(existing, fh, indent=2, sort_keys=True)
+        json.dump(safe_existing, fh, indent=2, sort_keys=True)
     _debug(
-        f"Finished writing {len(existing)} articles to {output_path}. "
+        f"Finished writing {len(safe_existing)} articles to {output_path}. "
         f"File size is now {output_path.stat().st_size} bytes."
     )
 
@@ -815,6 +834,73 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
 
     print(f"Downloaded PDF {final_path}")
     return final_path
+
+
+def _cleanup_ocr_text(raw_text: str) -> str:
+    """Use the LLM cleanup step shared by OCR flows."""
+
+    if not raw_text:
+        return ""
+
+    client = openai.OpenAI()
+    prompt = (
+        "Below, I am pasting a scientific article that has been processed by OCR. "
+        "I want you to clean up all the mistakes and reformat the text for readability. "
+        "Do NOT summarize the text - your goal is strictly to correct OCR errors, not to alter the original article. "
+        "You must preserve the original grammar, syntax, and spelling of the article."
+    )
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": raw_text},
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=SPEAKING_MODEL,
+            messages=messages,
+            max_completion_tokens=14000,
+        )
+        return resp.choices[0].message.content
+    except Exception as exc:
+        print(f"[OCR] LLM cleanup failed: {exc}")
+        return raw_text
+
+
+def _ocr_pdf_fallback(pdf_path: Path, txt_path: Path) -> Path | None:
+    """Extract text directly from *pdf_path* when OCR binaries are unavailable."""
+
+    try:
+        from PyPDF2 import PdfReader
+
+        reader = PdfReader(str(pdf_path))
+        raw_text = ""
+        for page in reader.pages:
+            try:
+                raw_text += page.extract_text() or ""
+            except Exception as exc:
+                print(f"[OCR] Failed to read page text during fallback: {exc}")
+                continue
+    except Exception as exc:
+        print(f"[OCR] Fallback text extraction failed: {exc}")
+        return None
+
+    cleaned_text = _cleanup_ocr_text(raw_text)
+    try:
+        txt_path.write_text(cleaned_text, encoding="utf-8")
+    except Exception as exc:
+        print(f"[OCR] Failed to write fallback text: {exc}")
+        return None
+
+    archive_path = pdf_path.with_suffix(".zip")
+    payload = cleaned_text.encode("utf-8") or b"Fallback OCR placeholder"
+    try:
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("page-1.txt", payload)
+    except Exception as exc:
+        print(f"[OCR] Failed to create fallback archive: {exc}")
+
+    print(f"[OCR] Saved fallback OCR text to {txt_path}")
+    return txt_path
 
 
 def fetch_pdf_for_article(title: str, dest_dir: Path = _PDF_DIR) -> Path | None:
@@ -1867,13 +1953,15 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
         print(f"[OCR] PDF not found: {pdf_path}")
         return None
 
-    if not shutil.which("tesseract"):
-        print(
-            "[OCR] Tesseract executable not found. Please install the 'tesseract-ocr' package."
-        )
-        return None
-
     txt_path = pdf_path.with_suffix(".txt")
+    tesseract = shutil.which("tesseract")
+    pdftoppm = shutil.which("pdftoppm")
+    if not tesseract or not pdftoppm:
+        print(
+            "[OCR] Required OCR tools missing; attempting direct text extraction fallback."
+        )
+        return _ocr_pdf_fallback(pdf_path, txt_path)
+
     tmpdir = tempfile.mkdtemp(prefix="ocr_")
     print(f"[OCR] Temporary directory for image pages: {tmpdir}")
     try:
@@ -1906,28 +1994,7 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
 
         raw_text = "".join(text_chunks)
 
-        client = openai.OpenAI()
-        prompt = (
-            "Below, I am pasting a scientific article that has been processed by OCR. "
-            "I want you to clean up all the mistakes and reformat the text for readability. "
-            "Do NOT summarize the text - your goal is strictly to correct OCR errors, not to alter the original article. "
-            "You must preserve the original grammar, syntax, and spelling of the article."
-        )
-        messages = [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": raw_text},
-        ]
-
-        try:
-            resp = client.chat.completions.create(
-                model=SPEAKING_MODEL,
-                messages=messages,
-                max_completion_tokens=14000,
-            )
-            cleaned_text = resp.choices[0].message.content
-        except Exception as exc:
-            print(f"[OCR] LLM cleanup failed: {exc}")
-            cleaned_text = raw_text
+        cleaned_text = _cleanup_ocr_text(raw_text)
 
         with txt_path.open("w", encoding="utf-8") as out:
             out.write(cleaned_text)
