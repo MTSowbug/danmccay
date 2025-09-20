@@ -1336,38 +1336,25 @@ def test_fetch_pdf_for_doi_runs_analysis(monkeypatch, tmp_path):
 def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     html = '<a href="v15p6497.pdf">PDF</a>'
 
-    class FakeResp:
-        def __init__(self, data, ctype, url):
-            self._data = data
-            self.headers = {"Content-Type": ctype}
-            self._url = url
+    calls: list[str] = []
 
-        def read(self):
-            return self._data
+    def fake_run(args, cwd=None, capture_output=False, text=False):
+        assert args[0] == "bash"
+        assert Path(args[1]).name == "pdf_fetch_generic.sh"
+        assert capture_output and text
+        assert cwd == str(tmp_path)
+        url = args[2]
+        calls.append(url)
+        out_path = Path(cwd) / "tempfile"
+        if len(calls) == 1:
+            out_path.write_text(html, encoding="utf-8")
+            stdout = "--2024-01-01--  http://example.com/dir/page.html\n"
+        else:
+            out_path.write_bytes(b"%PDFDATA")
+            stdout = "--2024-01-01--  http://example.com/dir/v15p6497.pdf\n"
+        return types.SimpleNamespace(returncode=0, stdout=stdout, stderr="")
 
-        def geturl(self):
-            return self._url
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            pass
-
-    class FakeOpener:
-        def __init__(self):
-            self.calls = 0
-
-        def open(self, req, timeout=30):
-            self.calls += 1
-            if self.calls == 1:
-                return FakeResp(html.encode(), "text/html", "http://example.com/dir/page.html")
-            if self.calls == 2:
-                assert req.full_url == "http://example.com/dir/v15p6497.pdf"
-                return FakeResp(b"%PDFDATA", "application/pdf", req.full_url)
-            raise AssertionError("too many calls")
-
-    monkeypatch.setattr(fft.urllib.request, "build_opener", lambda *a, **k: FakeOpener())
+    monkeypatch.setattr(fft.subprocess, "run", fake_run)
 
     class FakeClient:
         def __init__(self, *a, **k):
@@ -1388,47 +1375,38 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     assert out == "Downloaded http://example.com/dir/v15p6497.pdf"
     pdf = tmp_path / "article_fulltext_version2.pdf"
     assert pdf.exists()
+    assert calls == ["http://example.com/dir/page.html", "http://example.com/dir/v15p6497.pdf"]
 
 
 def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
     html1 = '<a href="next.html">Next</a>'
     html2 = '<a href="final.pdf">PDF</a>'
 
-    class FakeResp:
-        def __init__(self, data, ctype, url):
-            self._data = data
-            self.headers = {"Content-Type": ctype}
-            self._url = url
+    calls: list[str] = []
 
-        def read(self):
-            return self._data
-
-        def geturl(self):
-            return self._url
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            pass
-
-    class FakeOpener:
-        def __init__(self):
-            self.calls = 0
-
-        def open(self, req, timeout=30):
-            self.calls += 1
-            if self.calls == 1:
-                return FakeResp(html1.encode(), "text/html", "http://ex.com/page.html")
-            if self.calls == 2:
-                assert req.full_url == "http://ex.com/next.html"
-                return FakeResp(html2.encode(), "text/html", req.full_url)
-            if self.calls == 3:
-                assert req.full_url == "http://ex.com/final.pdf"
-                return FakeResp(b"%PDFDATA", "application/pdf", req.full_url)
+    def fake_run(args, cwd=None, capture_output=False, text=False):
+        assert args[0] == "bash"
+        assert Path(args[1]).name == "pdf_fetch_generic.sh"
+        assert cwd == str(tmp_path)
+        url = args[2]
+        calls.append(url)
+        out_path = Path(cwd) / "tempfile"
+        if len(calls) == 1:
+            out_path.write_text(html1, encoding="utf-8")
+            stdout = "--2024-01-01--  http://ex.com/page.html\n"
+        elif len(calls) == 2:
+            assert url == "http://ex.com/next.html"
+            out_path.write_text(html2, encoding="utf-8")
+            stdout = "--2024-01-01--  http://ex.com/next.html\n"
+        elif len(calls) == 3:
+            assert url == "http://ex.com/final.pdf"
+            out_path.write_bytes(b"%PDFDATA")
+            stdout = "--2024-01-01--  http://ex.com/final.pdf\n"
+        else:
             raise AssertionError("too many calls")
+        return types.SimpleNamespace(returncode=0, stdout=stdout, stderr="")
 
-    monkeypatch.setattr(fft.urllib.request, "build_opener", lambda *a, **k: FakeOpener())
+    monkeypatch.setattr(fft.subprocess, "run", fake_run)
 
     messages = []
 
@@ -1452,6 +1430,11 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
     out = fft._llm_shell_commands(E(), tmp_path)
     assert out == "Downloaded http://ex.com/final.pdf"
     assert any("http://ex.com/page.html" in m.get("content", "") for m in messages[1])
+    assert calls == [
+        "http://ex.com/page.html",
+        "http://ex.com/next.html",
+        "http://ex.com/final.pdf",
+    ]
 
 
 def test_analyze_article_updates_scores(monkeypatch, tmp_path):

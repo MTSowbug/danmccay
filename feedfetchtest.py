@@ -22,14 +22,7 @@ import json
 import re
 import urllib.parse
 import urllib.request
-import gzip
-import io
 from http import cookiejar
-
-# Brotli is required for decompression of many modern websites.
-# Raise an explicit error if the module is missing so the user can
-# install it rather than silently continuing without support.
-import brotli as _brotli
 
 import openai
 from models import SPEAKING_MODEL, THINKING_MODEL, FETCH_MODEL
@@ -430,36 +423,47 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         return ""
 
     client = openai.OpenAI()
-    opener = _build_http_opener()
-    global _HTTP_OPENER
-    _HTTP_OPENER = opener
-    urllib.request.install_opener(opener)
+    script_path = (_BASE_DIR / "pdf_fetch_generic.sh").resolve()
+    if not script_path.is_file():
+        print(f"Fetch script not found at {script_path}")
+        return ""
 
     def _fetch(u: str) -> tuple[bytes, str, str]:
-        req = urllib.request.Request(u, headers=_HTTP_HEADERS, method="GET")
-        with opener.open(req, timeout=30) as resp:
-            ctype = resp.headers.get("Content-Type", "")
-            enc = resp.headers.get("Content-Encoding", "").lower()
-            final_url = resp.geturl()
-            if enc in {"gzip", "br", "brotli"}:
-                raw = resp.read()
-                if enc == "gzip":
-                    raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
-                else:
-                    raw = _brotli.decompress(raw)
-            else:
-                try:
-                    chunks: list[bytes] = []
-                    while True:
-                        chunk = resp.read(1024 * 64)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                    raw = b"".join(chunks)
-                except TypeError:
-                    raw = resp.read()
-        _persist_cookie_snapshot()
-        return raw, ctype, final_url
+        temp_file = dest_dir / "tempfile"
+        temp_file.unlink(missing_ok=True)
+
+        try:
+            result = subprocess.run(
+                ["bash", str(script_path), u],
+                cwd=str(dest_dir),
+                capture_output=True,
+                text=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Failed to launch fetch script: {exc}") from exc
+
+        if result.returncode != 0:
+            output = (result.stderr or "").strip() or (result.stdout or "").strip()
+            raise RuntimeError(
+                f"Fetch script exited with {result.returncode} for {u}: {output}"
+            )
+
+        if not temp_file.exists():
+            raise RuntimeError("Fetch script did not produce an output file")
+
+        data = temp_file.read_bytes()
+        temp_file.unlink(missing_ok=True)
+
+        transcript = "\n".join(filter(None, [result.stdout, result.stderr]))
+        urls = re.findall(r"https?://\S+", transcript)
+        final_url = urls[-1].rstrip('\"\'') if urls else u
+
+        if data.startswith(b"%PDF"):
+            ctype = "application/pdf"
+        else:
+            ctype = "text/html"
+
+        return data, ctype, final_url
 
     visited = []
     for i in range(5):
