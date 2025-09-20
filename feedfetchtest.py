@@ -32,7 +32,7 @@ from http import cookiejar
 import brotli as _brotli
 
 import openai
-from models import SPEAKING_MODEL, THINKING_MODEL
+from models import SPEAKING_MODEL, THINKING_MODEL, FETCH_MODEL
 import yaml
 import subprocess
 import shlex
@@ -415,11 +415,12 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             messages.append({"role": "system", "content": msg})
 
         messages.append({"role": "user", "content": snippet})
-        try:
+        try: #tunark
             resp = client.chat.completions.create(
-                model=SPEAKING_MODEL,
+                model=FETCH_MODEL,
                 messages=messages,
-                max_completion_tokens=200,
+                max_completion_tokens=1000,
+		reasoning_effort="low",
             )
             guess = resp.choices[0].message.content.strip()
         except Exception as exc:
@@ -433,6 +434,8 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             pieces = guess.strip().split()
             if not pieces:
                 print(f"LLM response did not contain a URL: {guess}")
+                print(resp)
+                print(resp.choices[0])
                 break
             url_candidate = pieces[0].strip("'\"()<>,.")
         url = urllib.parse.urljoin(final_url, url_candidate)
@@ -652,8 +655,12 @@ def _download_pdf(entry, dest_dir: Path) -> Path | None:
     dest_dir.mkdir(exist_ok=True)
     before = set(dest_dir.glob("*.pdf"))
 
+    print(entry)
+
     def _getattr(obj, name):
         return obj.get(name, "") if isinstance(obj, dict) else getattr(obj, name, "")
+
+    print(json.dumps(entry, indent=2))
 
     journal = (
         _getattr(entry, "journal")
