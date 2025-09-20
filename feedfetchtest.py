@@ -32,7 +32,7 @@ from http import cookiejar
 import brotli as _brotli
 
 import openai
-from models import SPEAKING_MODEL, THINKING_MODEL
+from models import SPEAKING_MODEL, THINKING_MODEL, FETCH_MODEL
 import yaml
 import subprocess
 import shlex
@@ -470,9 +470,10 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         messages.append({"role": "user", "content": snippet})
         try:
             resp = client.chat.completions.create(
-                model=SPEAKING_MODEL,
+                model=FETCH_MODEL,
                 messages=messages,
-                max_completion_tokens=200,
+                max_completion_tokens=2000,
+                reasoning_effort="low"
             )
             guess = resp.choices[0].message.content.strip()
         except Exception as exc:
