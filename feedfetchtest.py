@@ -465,6 +465,32 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         if cookie_snapshot is not None:
             env["PDF_FETCH_COOKIE_JAR"] = str(cookie_snapshot)
 
+        def _clean_url(value: str) -> str:
+            return value.rstrip("')]>")
+
+        def _final_url_from_transcript(transcript: str, fallback: str) -> str:
+            lines = transcript.splitlines()
+            request_pattern = re.compile(
+                r"--\d{4}-\d{2}-\d{2}[^-]*--\s+(https?://\S+)"
+            )
+            for line in reversed(lines):
+                match = request_pattern.search(line)
+                if match:
+                    return _clean_url(match.group(1))
+
+            location_pattern = re.compile(
+                r"Location:\s*(https?://[^\s'\"\[]+)", re.I
+            )
+            for line in reversed(lines):
+                match = location_pattern.search(line)
+                if match:
+                    return _clean_url(match.group(1))
+
+            urls = re.findall(r"https?://\S+", transcript)
+            if urls:
+                return _clean_url(urls[-1])
+            return fallback
+
         try:
             result = subprocess.run(
                 ["bash", str(script_path), u],
@@ -492,8 +518,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         temp_file.unlink(missing_ok=True)
 
         transcript = "\n".join(filter(None, [result.stdout, result.stderr]))
-        urls = re.findall(r"https?://\S+", transcript)
-        final_url = urls[-1].rstrip('\"\'') if urls else u
+        final_url = _final_url_from_transcript(transcript, u)
 
         if data.startswith(b"%PDF"):
             ctype = "application/pdf"

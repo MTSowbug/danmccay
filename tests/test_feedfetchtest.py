@@ -2,6 +2,7 @@ import os, sys; sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import builtins
 import io
 import json
+import textwrap
 import types
 import time
 from pathlib import Path
@@ -1379,6 +1380,76 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
     pdf = tmp_path / "article_fulltext_version2.pdf"
     assert pdf.exists()
     assert calls == ["http://example.com/dir/page.html", "http://example.com/dir/v15p6497.pdf"]
+
+
+def test_llm_shell_commands_uses_redirect_domain_for_relative(monkeypatch, tmp_path):
+    html = '<a href="/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf">PDF</a>'
+
+    calls: list[str] = []
+
+    def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
+        assert args[0] == "bash"
+        assert Path(args[1]).name == "pdf_fetch_generic.sh"
+        assert capture_output and text
+        assert cwd == str(tmp_path)
+        assert env is not None
+        cookie_path = Path(env["PDF_FETCH_COOKIE_JAR"])
+        assert cookie_path.exists()
+        url = args[2]
+        calls.append(url)
+        out_path = Path(cwd) / "tempfile"
+        if len(calls) == 1:
+            out_path.write_text(html, encoding="utf-8")
+            stdout = textwrap.dedent(
+                """\
+                --2024-01-01 00:00:00--  https://doi.org/10.1093/gerona/glaf168
+                Location: https://academic.oup.com/biomedgerontology/advance-article/doi/10.1093/gerona/glaf168/8258610 [following]
+                --2024-01-01 00:00:00--  https://academic.oup.com/biomedgerontology/advance-article/doi/10.1093/gerona/glaf168/8258610
+                Referer: https://doi.org/10.1093/gerona/glaf168
+                """
+            )
+        else:
+            out_path.write_bytes(b"%PDFDATA")
+            stdout = textwrap.dedent(
+                """\
+                --2024-01-01 00:00:00--  https://academic.oup.com/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf
+                """
+            )
+        return types.SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(fft.subprocess, "run", fake_run)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **k: types.SimpleNamespace(
+                        choices=[
+                            types.SimpleNamespace(
+                                message=types.SimpleNamespace(
+                                    content="/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf"
+                                )
+                            )
+                        ]
+                    )
+                )
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: FakeClient()))
+
+    class E:
+        link = "https://doi.org/10.1093/gerona/glaf168"
+
+    out = fft._llm_shell_commands(E(), tmp_path)
+    assert out == (
+        "Downloaded https://academic.oup.com/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf"
+    )
+    pdf = tmp_path / "article_fulltext_version2.pdf"
+    assert pdf.exists()
+    assert calls == [
+        "https://doi.org/10.1093/gerona/glaf168",
+        "https://academic.oup.com/biomedgerontology/advance-article-pdf/doi/10.1093/gerona/glaf168/64325350/glaf168.pdf",
+    ]
 
 
 def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
