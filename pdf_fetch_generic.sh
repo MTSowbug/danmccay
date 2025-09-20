@@ -8,7 +8,8 @@ arg="$1"
 out="tempfile"
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-COOKIE_JAR="${script_dir}/../pdfs/jar.cookies"
+COOKIE_JAR_DEFAULT="${script_dir}/../pdfs/jar.cookies"
+COOKIE_JAR="${PDF_FETCH_COOKIE_JAR:-$COOKIE_JAR_DEFAULT}"
 
 touch "$COOKIE_JAR"
 

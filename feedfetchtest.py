@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, List
 import json
 
+import os
 import re
 import urllib.parse
 import urllib.request
@@ -99,6 +100,33 @@ def _persist_cookie_snapshot() -> Path | None:
             )
         )
         return None
+
+
+def _temporary_cookie_jar_copy() -> Path | None:
+    """Return a temporary copy of the cookie jar for subprocess use."""
+
+    try:
+        handle = tempfile.NamedTemporaryFile(
+            prefix="feedfetch_cookie_", suffix=".jar", delete=False
+        )
+    except Exception as exc:
+        _debug(f"Failed to allocate temporary cookie jar: {exc}")
+        return None
+
+    temp_path = Path(handle.name)
+    handle.close()
+
+    try:
+        if _COOKIE_JAR_PATH.exists():
+            shutil.copy2(_COOKIE_JAR_PATH, temp_path)
+        else:
+            temp_path.write_text("", encoding="utf-8")
+    except Exception as exc:
+        _debug(f"Failed to prepare temporary cookie jar at {temp_path}: {exc}")
+        temp_path.unlink(missing_ok=True)
+        return None
+
+    return temp_path
 
 
 def _build_http_opener():
@@ -432,15 +460,24 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         temp_file = dest_dir / "tempfile"
         temp_file.unlink(missing_ok=True)
 
+        env = os.environ.copy()
+        cookie_snapshot = _temporary_cookie_jar_copy()
+        if cookie_snapshot is not None:
+            env["PDF_FETCH_COOKIE_JAR"] = str(cookie_snapshot)
+
         try:
             result = subprocess.run(
                 ["bash", str(script_path), u],
                 cwd=str(dest_dir),
                 capture_output=True,
                 text=True,
+                env=env,
             )
         except Exception as exc:
             raise RuntimeError(f"Failed to launch fetch script: {exc}") from exc
+        finally:
+            if cookie_snapshot is not None:
+                cookie_snapshot.unlink(missing_ok=True)
 
         if result.returncode != 0:
             output = (result.stderr or "").strip() or (result.stdout or "").strip()

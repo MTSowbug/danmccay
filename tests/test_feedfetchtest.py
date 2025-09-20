@@ -1338,11 +1338,14 @@ def test_llm_shell_commands_handles_bare_relative(monkeypatch, tmp_path):
 
     calls: list[str] = []
 
-    def fake_run(args, cwd=None, capture_output=False, text=False):
+    def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
         assert args[0] == "bash"
         assert Path(args[1]).name == "pdf_fetch_generic.sh"
         assert capture_output and text
         assert cwd == str(tmp_path)
+        assert env is not None
+        cookie_path = Path(env["PDF_FETCH_COOKIE_JAR"])
+        assert cookie_path.exists()
         url = args[2]
         calls.append(url)
         out_path = Path(cwd) / "tempfile"
@@ -1384,10 +1387,13 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
 
     calls: list[str] = []
 
-    def fake_run(args, cwd=None, capture_output=False, text=False):
+    def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
         assert args[0] == "bash"
         assert Path(args[1]).name == "pdf_fetch_generic.sh"
         assert cwd == str(tmp_path)
+        assert env is not None
+        cookie_path = Path(env["PDF_FETCH_COOKIE_JAR"])
+        assert cookie_path.exists()
         url = args[2]
         calls.append(url)
         out_path = Path(cwd) / "tempfile"
@@ -1435,6 +1441,47 @@ def test_llm_shell_commands_enumerates_links(monkeypatch, tmp_path):
         "http://ex.com/next.html",
         "http://ex.com/final.pdf",
     ]
+
+
+def test_llm_shell_commands_preserves_cookie_jar(monkeypatch, tmp_path):
+    cookie_path = tmp_path / "jar.cookies"
+    cookie_path.write_text("ORIGINAL", encoding="utf-8")
+    monkeypatch.setattr(fft, "_COOKIE_JAR_PATH", cookie_path)
+
+    snapshot_paths: list[Path] = []
+
+    def fake_run(args, cwd=None, capture_output=False, text=False, env=None):
+        assert args[0] == "bash"
+        assert env is not None
+        snapshot = Path(env["PDF_FETCH_COOKIE_JAR"])
+        assert snapshot != cookie_path
+        snapshot_paths.append(snapshot)
+        assert snapshot.exists()
+        assert snapshot.read_text(encoding="utf-8") == "ORIGINAL"
+        snapshot.write_text("MODIFIED", encoding="utf-8")
+        out_path = Path(cwd) / "tempfile"
+        out_path.write_bytes(b"%PDF data")
+        stdout = "--2024-01-01--  http://example.com/final.pdf\n"
+        return types.SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(fft.subprocess, "run", fake_run)
+
+    class DummyClient:
+        def __init__(self, *a, **k):
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(create=lambda **kw: None)
+            )
+
+    monkeypatch.setattr(fft, "openai", types.SimpleNamespace(OpenAI=lambda: DummyClient()))
+
+    class E:
+        link = "http://example.com/page.html"
+
+    out = fft._llm_shell_commands(E(), tmp_path)
+    assert out == "Downloaded http://example.com/final.pdf"
+    assert cookie_path.read_text(encoding="utf-8") == "ORIGINAL"
+    assert snapshot_paths, "Snapshot path was not captured"
+    assert not snapshot_paths[0].exists()
 
 
 def test_analyze_article_updates_scores(monkeypatch, tmp_path):
