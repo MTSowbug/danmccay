@@ -486,6 +486,21 @@ def test_save_articles(tmp_path):
     data2 = json.loads(path.read_text())
     assert set(data2.keys()) == {'k', 'k2'}
 
+
+def test_save_articles_sanitizes_objects(tmp_path):
+    class Entry:
+        def __init__(self):
+            self.title = 'E'
+            self.link = 'L'
+
+    entry = Entry()
+    path = tmp_path / 'a.json'
+    fft._save_articles({'k': {'title': 'Main', 'problem': entry}}, path)
+
+    stored = json.loads(path.read_text())
+    assert stored['k']['title'] == 'Main'
+    assert stored['k']['problem'] == {'title': 'E', 'link': 'L'}
+
 def test_fetch_recent_articles(monkeypatch, tmp_path):
     opml = '<opml><body><outline type="rss" xmlUrl="http://feed" title="FT"/></body></opml>'
 
@@ -775,6 +790,44 @@ def test_download_missing_pdfs_failure(monkeypatch, tmp_path):
     stored = json.loads(json_path.read_text())
     assert 'pdf' not in stored['1']
     assert stored['1']['download_successful'] is False
+
+
+def test_download_missing_pdfs_handles_non_serializable(monkeypatch, tmp_path):
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps({'1': {'title': 't1', 'link': 'L1'}}))
+
+    class Odd:
+        def __init__(self):
+            self.info = 'bad'
+
+    odd = Odd()
+    original_load = json.load
+    load_calls = {'count': 0}
+
+    def fake_load(fh, *args, **kwargs):
+        if load_calls['count'] == 0:
+            load_calls['count'] += 1
+            return {'1': {'title': 't1', 'link': 'L1', 'weird': odd}}
+        return original_load(fh, *args, **kwargs)
+
+    def fake_download(entry, dest):
+        p = dest / f"{entry.title}.pdf"
+        p.write_bytes(b'd')
+        return p
+
+    monkeypatch.setattr(fft.json, 'load', fake_load)
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_missing_pdfs(json_path=json_path, max_articles=1)
+
+    stored = json.loads(json_path.read_text())
+    assert stored['1']['pdf'] == 't1.pdf'
+    assert stored['1']['download_successful'] is True
+    assert stored['1']['weird'] == {'info': 'bad'}
 
 
 def test_download_journal_pdfs_skips_successful(monkeypatch, tmp_path):
