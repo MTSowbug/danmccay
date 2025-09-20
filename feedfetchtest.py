@@ -23,7 +23,6 @@ import os
 import re
 import urllib.parse
 import urllib.request
-from http import cookiejar
 
 import openai
 from models import SPEAKING_MODEL, THINKING_MODEL, FETCH_MODEL
@@ -54,84 +53,9 @@ _PDF_DIR.mkdir(parents=True, exist_ok=True)
 if not _ARTICLES_JSON.is_file():
     _ARTICLES_JSON.write_text("{}", encoding="utf-8")
 
-_COOKIE_JAR_PATH = _PDF_DIR / "jar.cookies"
-_COOKIE_JAR = cookiejar.MozillaCookieJar()
-if _COOKIE_JAR_PATH.exists():
-    try:
-        _COOKIE_JAR.load(
-            str(_COOKIE_JAR_PATH), ignore_discard=True, ignore_expires=True
-        )
-    except Exception:
-        pass
-
-
-def _next_cookie_snapshot_path(base_path: Path = _COOKIE_JAR_PATH) -> Path:
-    """Return a unique path for persisting a cookie snapshot."""
-
-    timestamp = _dt.datetime.now().strftime("%Y%m%dT%H%M%S")
-    suffix = f".{timestamp}"
-    candidate = base_path.with_name(f"{base_path.name}{suffix}")
-    counter = 0
-    while candidate.exists():
-        counter += 1
-        candidate = base_path.with_name(f"{base_path.name}{suffix}.{counter}")
-    return candidate
-
-
-def _persist_cookie_snapshot() -> Path | None:
-    """Persist cookies without modifying the original jar location."""
-
-    try:
-        destination = _next_cookie_snapshot_path()
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        _COOKIE_JAR.save(
-            str(destination), ignore_discard=True, ignore_expires=True
-        )
-        _debug(
-            "Saved cookies to {destination} without overwriting {source}.".format(
-                destination=destination, source=_COOKIE_JAR_PATH
-            )
-        )
-        return destination
-    except Exception as exc:
-        _debug(
-            "Failed to persist cookies to an alternate file due to {exc!s}.".format(
-                exc=exc
-            )
-        )
-        return None
-
-
-def _temporary_cookie_jar_copy() -> Path | None:
-    """Return a temporary copy of the cookie jar for subprocess use."""
-
-    try:
-        handle = tempfile.NamedTemporaryFile(
-            prefix="feedfetch_cookie_", suffix=".jar", delete=False
-        )
-    except Exception as exc:
-        _debug(f"Failed to allocate temporary cookie jar: {exc}")
-        return None
-
-    temp_path = Path(handle.name)
-    handle.close()
-
-    try:
-        if _COOKIE_JAR_PATH.exists():
-            shutil.copy2(_COOKIE_JAR_PATH, temp_path)
-        else:
-            temp_path.write_text("", encoding="utf-8")
-    except Exception as exc:
-        _debug(f"Failed to prepare temporary cookie jar at {temp_path}: {exc}")
-        temp_path.unlink(missing_ok=True)
-        return None
-
-    return temp_path
-
 
 def _build_http_opener():
     return urllib.request.build_opener(
-        urllib.request.HTTPCookieProcessor(_COOKIE_JAR),
         urllib.request.HTTPRedirectHandler(),
     )
 
@@ -451,7 +375,8 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         return ""
 
     client = openai.OpenAI()
-    script_path = (_BASE_DIR / "pdf_fetch_generic.sh").resolve()
+    #script_path = (_BASE_DIR / "pdf_fetch_generic.sh").resolve()
+    script_path = (_BASE_DIR / "pdf_fetch_generic_curl.sh").resolve()
     if not script_path.is_file():
         print(f"Fetch script not found at {script_path}")
         return ""
@@ -461,9 +386,6 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         temp_file.unlink(missing_ok=True)
 
         env = os.environ.copy()
-        cookie_snapshot = _temporary_cookie_jar_copy()
-        if cookie_snapshot is not None:
-            env["PDF_FETCH_COOKIE_JAR"] = str(cookie_snapshot)
 
         try:
             result = subprocess.run(
@@ -475,9 +397,6 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             )
         except Exception as exc:
             raise RuntimeError(f"Failed to launch fetch script: {exc}") from exc
-        finally:
-            if cookie_snapshot is not None:
-                cookie_snapshot.unlink(missing_ok=True)
 
         if result.returncode != 0:
             output = (result.stderr or "").strip() or (result.stdout or "").strip()
@@ -529,7 +448,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         html = data.decode("utf-8", errors="ignore")
 
         snippet = _html_links_only(html)
-        #print(f"Cleaned HTML: {snippet}")
+        print(f"Cleaned HTML: {snippet}")
 
         info_parts = []
         title = getattr(entry, "title", "")
