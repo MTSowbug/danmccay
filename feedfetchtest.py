@@ -17,6 +17,7 @@ import datetime as _dt
 import xml.etree.ElementTree as _ET
 from pathlib import Path
 from typing import Dict, List
+from collections import Counter
 import json
 
 import os
@@ -367,6 +368,78 @@ def _html_links_only(html: str) -> str:
     return html.strip()
 
 
+_DOI_HOSTS = {"doi.org", "www.doi.org", "dx.doi.org"}
+
+
+def _determine_effective_url(
+    requested_url: str,
+    reported_url: str,
+    html: str,
+) -> str:
+    """Return the most plausible canonical URL for *html*.
+
+    Browsing often begins from a doi.org link which subsequently redirects to the
+    publisher's site.  When the fetch script fails to report the final URL, we
+    must infer it from the HTML so that any relative links are joined against
+    the correct domain.
+    """
+
+    fallback = reported_url or requested_url or ""
+    base_source = fallback or requested_url or ""
+
+    if not html:
+        return fallback
+
+    patterns = [
+        r"<base[^>]+href\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<link[^>]+rel\s*=\s*['\"]canonical['\"][^>]*href\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+property\s*=\s*['\"]og:url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+name\s*=\s*['\"]og:url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+property\s*=\s*['\"]citation_public_url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+name\s*=\s*['\"]citation_public_url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+property\s*=\s*['\"]citation_fulltext_html_url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+name\s*=\s*['\"]citation_fulltext_html_url['\"][^>]*content\s*=\s*['\"]([^'\"]+)['\"]",
+        r"<meta[^>]+http-equiv\s*=\s*['\"]refresh['\"][^>]*content\s*=\s*['\"][^'\"]*url=([^'\" >;]+)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.I)
+        if not match:
+            continue
+        candidate = match.group(1).strip()
+        if not candidate:
+            continue
+        resolved = urllib.parse.urljoin(base_source, candidate)
+        parsed = urllib.parse.urlparse(resolved)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return resolved
+
+    parsed_source = urllib.parse.urlparse(base_source)
+    fallback_host = parsed_source.netloc.lower()
+
+    if fallback_host and fallback_host not in _DOI_HOSTS:
+        return fallback
+
+    host_counts: Counter[str] = Counter()
+    for link in re.findall(r"<a[^>]+href=\s*['\"](https?://[^'\"]+)['\"]", html, flags=re.I):
+        parsed_link = urllib.parse.urlparse(link)
+        host = parsed_link.netloc.lower()
+        if host:
+            host_counts[host] += 1
+
+    for host, count in host_counts.most_common():
+        if host and host not in _DOI_HOSTS and count >= 2:
+            scheme = (
+                parsed_source.scheme
+                or urllib.parse.urlparse(requested_url or "").scheme
+                or "https"
+            )
+            return urllib.parse.urlunparse((scheme, host, "/", "", "", ""))
+
+    return fallback
+
+
+
 def _llm_shell_commands(entry, dest_dir: Path) -> str:
     """Use an LLM-guided browsing loop to download *entry* as a PDF."""
     url = getattr(entry, "link", "") or getattr(entry, "doi", "")
@@ -421,7 +494,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
 
         return data, ctype, final_url
 
-    visited = []
+    visited: list[str] = []
     for i in range(5):
         if url in visited:
             print("Encountered a repeated URL; aborting")
@@ -433,8 +506,10 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
             print(f"Failed to fetch {url}: {exc}")
             break
 
-        if final_url not in visited:
-            visited.append(final_url)
+        fallback_url = final_url or url
+        for candidate in (url, fallback_url):
+            if candidate and candidate not in visited:
+                visited.append(candidate)
 
         if ctype.startswith("application/pdf") or data.startswith(b"%PDF"):
             pdf_path = dest_dir / f"article_fulltext_version{i + 1}.pdf"
@@ -443,9 +518,14 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                 print(f"Saved PDF {pdf_path}")
             except Exception as exc:
                 print(f"Failed to save PDF: {exc}")
-            return f"Downloaded {final_url}"
+            return f"Downloaded {fallback_url}"
 
         html = data.decode("utf-8", errors="ignore")
+
+        page_url = _determine_effective_url(url, final_url, html)
+        base_url = page_url or fallback_url
+        if base_url and base_url not in visited:
+            visited.append(base_url)
 
         snippet = _html_links_only(html)
         print(f"Cleaned HTML: {snippet}")
@@ -473,7 +553,7 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                 "role": "system",
                 "content": (
                     f"Identify the link in this HTML that most likely leads to the full-text PDF of the corresponding scientific article. "
-                    f"You are currently viewing {final_url}. Do not pick a link that loads this same page again. "
+                    f"You are currently viewing {base_url or fallback_url}. Do not pick a link that loads this same page again. "
                     "Respond only with that URL. Your URL must appear VERBATIM within the HTML listed below. "
                     "DO NOT MODIFY THESE LINKS. Your URL does not have to lead directly to the PDF, but it must lead "
                     "the user closer to the PDF. Some PDF links are misleading - try to avoid links to supplementary "
@@ -484,7 +564,9 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
         if context:
             messages.append({"role": "system", "content": f"Article information:\n{context}"})
 
-        prior_links = [v for v in visited if v != final_url]
+        current_view = base_url or fallback_url
+        prior_links = [v for v in visited if v and v != current_view]
+
         if prior_links:
             msg = (
                 "These links have already been visited and NONE of them should be"
@@ -514,7 +596,24 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                 print(f"LLM response did not contain a URL: {guess}")
                 break
             url_candidate = pieces[0].strip("'\"()<>,.")
-        url = urllib.parse.urljoin(final_url, url_candidate)
+
+        base_for_join = current_view
+        if base_for_join:
+            parsed_base = urllib.parse.urlparse(base_for_join)
+        else:
+            parsed_base = None
+        if (
+            base_for_join
+            and parsed_base
+            and parsed_base.path
+            and not parsed_base.path.endswith("/")
+            and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", url_candidate)
+            and not url_candidate.startswith(("/", "#"))
+        ):
+            base_for_join = urllib.parse.urlunparse(
+                parsed_base._replace(path=f"{parsed_base.path}/")
+            )
+        url = urllib.parse.urljoin(base_for_join or fallback_url, url_candidate)
 
     return ""
 
