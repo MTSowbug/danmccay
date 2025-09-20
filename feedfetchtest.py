@@ -1219,6 +1219,8 @@ def download_missing_pdfs(
     for key, data in articles.items():
         if data.get("pdf"):
             continue
+        if data.get("download_successful") is False:
+            continue
         if max_articles is not None and processed >= max_articles:
             break
 
