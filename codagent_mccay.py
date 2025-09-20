@@ -43,7 +43,7 @@ from fingerprinting import (
     topological_fingerprint,
     morgan_fingerprint,
 )
-from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL
+from models import SPEAKING_MODEL, THINKING_MODEL, MUD_MODEL, FETCH_MODEL
 import urllib.request
 
 # Character prompt loaded from YAML at runtime
@@ -1006,10 +1006,16 @@ def generate_science_preamble(task_desc):
 
     try:
         completion = client.chat.completions.create(
-            model=SPEAKING_MODEL,
+            model=FETCH_MODEL,
             messages=messages,
-            max_tokens=60,
+            #max_tokens=60,
+            max_completion_tokens=1000,
+            reasoning_effort="low",
         )
+        print(completion)
+        print(completion.choices[0])
+        print(completion.choices[0].message)
+        print(completion.choices[0].message.content.strip())
         return completion.choices[0].message.content.strip()
     except Exception as exc:
         print(f"Preamble generation failed: {exc}")
