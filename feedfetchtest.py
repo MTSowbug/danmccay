@@ -1113,7 +1113,13 @@ def download_missing_pdfs(
             if doi:
                 link = doi
         entry.link = link
-
+        entry.journal = (
+            data.get("journal")
+            or data.get("dc_source")
+            or data.get("source")
+            or ""
+        )
+        
         pdf_path = _download_pdf(entry, _PDF_DIR)
         data["download_successful"] = pdf_path is not None
         if pdf_path:

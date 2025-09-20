@@ -699,6 +699,32 @@ def test_download_missing_pdfs_key_fallback(monkeypatch, tmp_path):
     assert stored['https://example.com/a']['download_successful'] is True
 
 
+def test_download_missing_pdfs_passes_journal(monkeypatch, tmp_path):
+    data = {
+        '1': {'title': 't1', 'link': 'L1', 'journal': 'Nature Communications'},
+    }
+    json_path = tmp_path / 'a.json'
+    json_path.write_text(json.dumps(data))
+
+    captured = []
+
+    def fake_download(entry, dest):
+        captured.append(getattr(entry, 'journal', None))
+        p = dest / f"{entry.title}.pdf"
+        p.write_bytes(b'd')
+        return p
+
+    monkeypatch.setattr(fft, '_download_pdf', fake_download)
+    monkeypatch.setattr(fft, '_discover_doi', lambda *a, **k: '')
+    monkeypatch.setattr(fft, '_PDF_DIR', tmp_path)
+    monkeypatch.setattr(fft.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(fft.random, 'uniform', lambda *a, **k: 0)
+
+    fft.download_missing_pdfs(json_path=json_path, max_articles=1)
+
+    assert captured == ['Nature Communications']
+
+
 def test_download_journal_pdfs(monkeypatch, tmp_path):
     data = {
         '1': {'title': 't1', 'link': 'L1', 'journal': 'Aging Cell', 'doi': 'https://doi.org/10.1234/x'},
