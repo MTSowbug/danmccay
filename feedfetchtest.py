@@ -16,7 +16,7 @@ from __future__ import annotations
 import datetime as _dt
 import xml.etree.ElementTree as _ET
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Sequence
 from collections import Counter
 import json
 
@@ -314,6 +314,65 @@ def _doi_filename(doi: str) -> str:
     return "doiorg" + re.sub(r"[^a-z0-9._-]", "", doi)
 
 
+def _url_filename(url: str) -> str:
+    """Return a filesystem-safe stem derived from *url*."""
+
+    if not url:
+        return ""
+
+    url = url.strip()
+    if not url:
+        return ""
+
+    parsed = urllib.parse.urlparse(url)
+    parts: list[str] = []
+    if parsed.netloc:
+        parts.append(parsed.netloc)
+
+    path = parsed.path.strip("/")
+    if path:
+        parts.append(path.replace("/", "_"))
+
+    if parsed.query:
+        parts.append(parsed.query.replace("/", "_"))
+
+    candidate = "_".join(filter(None, parts)) or re.sub(r"^[a-z]+://", "", url, flags=re.I)
+    candidate = _sanitize_filename(candidate).strip("_")
+    candidate = re.sub(r"(?i)\.pdf$", "", candidate).strip("_")
+
+    if candidate:
+        return candidate
+
+    fallback = _sanitize_filename(url)
+    fallback = re.sub(r"(?i)\.pdf$", "", fallback).strip("_")
+    return fallback
+
+
+def _output_pdf_path(dest_dir: Path, entry, urls: Sequence[str]) -> Path:
+    """Return a unique PDF path in *dest_dir* derived from DOI or *urls*."""
+
+    doi = getattr(entry, "doi", "") or _extract_doi(entry)
+    base_name = _doi_filename(doi)
+
+    if not base_name:
+        for candidate in urls:
+            stem = _url_filename(candidate)
+            if stem:
+                base_name = stem
+                break
+
+    if not base_name:
+        base_name = "download"
+
+    suffix = 0
+    while True:
+        stem = base_name if suffix == 0 else f"{base_name}_{suffix}"
+        pdf_path = dest_dir / f"{stem}.pdf"
+        if not pdf_path.exists():
+            return pdf_path
+        suffix += 1
+
+
 def _extract_shell_script(text: str) -> str:
     """Return the bash script contained in *text*."""
     m = re.search(r"```(?:bash)?\n(.*?)```", text, re.S)
@@ -494,6 +553,11 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
 
         return data, ctype, final_url
 
+    def _entry_field(name: str) -> str:
+        if isinstance(entry, dict):
+            return entry.get(name, "") or ""
+        return getattr(entry, name, "") or ""
+
     visited: list[str] = []
     for i in range(5):
         if url in visited:
@@ -512,7 +576,17 @@ def _llm_shell_commands(entry, dest_dir: Path) -> str:
                 visited.append(candidate)
 
         if ctype.startswith("application/pdf") or data.startswith(b"%PDF"):
-            pdf_path = dest_dir / f"article_fulltext_version{i + 1}.pdf"
+            pdf_path = _output_pdf_path(
+                dest_dir,
+                entry,
+                [
+                    final_url,
+                    fallback_url,
+                    url,
+                    _entry_field("link"),
+                    _entry_field("id"),
+                ],
+            )
             try:
                 pdf_path.write_bytes(data)
                 print(f"Saved PDF {pdf_path}")
