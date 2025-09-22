@@ -126,6 +126,42 @@ def test_doi_filename():
     assert fft._doi_filename('DOI:10.1/hi-there') == 'doiorg10.1_hi-there'
 
 
+def test_url_filename():
+    assert (
+        fft._url_filename('https://example.com/path/to/file.pdf')
+        == 'example.com_path_to_file'
+    )
+    assert (
+        fft._url_filename('https://example.com/paper?id=123&lang=en')
+        == 'example.com_paper_id_123_lang_en'
+    )
+    assert fft._url_filename('') == ''
+
+
+def test_output_pdf_path_prefers_doi(tmp_path):
+    class Entry:
+        doi = 'https://doi.org/10.1234/Foo.Bar'
+        link = 'https://example.com/paper'
+
+    path = fft._output_pdf_path(tmp_path, Entry(), [Entry.link])
+    assert path.name == 'doiorg10.1234_foo.bar.pdf'
+
+    existing = tmp_path / path.name
+    existing.write_bytes(b'x')
+
+    next_path = fft._output_pdf_path(tmp_path, Entry(), [Entry.link])
+    assert next_path.name == 'doiorg10.1234_foo.bar_1.pdf'
+
+
+def test_output_pdf_path_uses_url(tmp_path):
+    class Entry:
+        doi = ''
+        link = 'https://example.com/folder/article'
+
+    url = 'https://example.com/folder/article?id=123'
+    path = fft._output_pdf_path(tmp_path, Entry(), [url])
+    assert path.name == 'example.com_folder_article_id_123.pdf'
+
 def test_extract_shell_script():
     text = 'some text\n```bash\necho hi\n```\nmore'
     assert fft._extract_shell_script(text) == 'echo hi'
