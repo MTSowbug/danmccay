@@ -3,7 +3,7 @@ Fetch every article published in the last 24 h from an OPML list of RSS feeds.
 
 Dependencies
 ------------
-pip install feedparser openai PyPDF2
+pip install feedparser openai PyPDF2 docling
 
 Usage
 -----
@@ -16,7 +16,7 @@ from __future__ import annotations
 import datetime as _dt
 import xml.etree.ElementTree as _ET
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, TYPE_CHECKING
 from collections import Counter
 import json
 
@@ -34,13 +34,120 @@ import time
 import random
 import shutil
 import tempfile
+import threading
 import zipfile
 
 import feedparser as _fp
 
+if TYPE_CHECKING:
+    from docling.document_converter import DocumentConverter
+    from docling.datamodel.document import ConversionResult
+
 _BASE_DIR = Path(__file__).resolve().parent
 _PDF_DIR = (_BASE_DIR / "../pdfs").resolve()
 _ARTICLES_JSON = _PDF_DIR / "articles.json"
+
+_DOC_CONVERTER: "DocumentConverter | None" = None
+_DOC_CONVERTER_FAILED = False
+_DOC_CONVERTER_LOCK = threading.Lock()
+
+
+def _get_docling_converter() -> "DocumentConverter | None":
+    """Initialise and cache a Docling ``DocumentConverter``."""
+
+    global _DOC_CONVERTER, _DOC_CONVERTER_FAILED
+
+    if _DOC_CONVERTER_FAILED:
+        return None
+
+    with _DOC_CONVERTER_LOCK:
+        if _DOC_CONVERTER is not None:
+            return _DOC_CONVERTER
+
+        try:
+            from docling.datamodel.base_models import InputFormat
+            from docling.document_converter import DocumentConverter
+        except ImportError as exc:
+            print(f"[OCR] Docling is not available in the environment: {exc}")
+            _DOC_CONVERTER_FAILED = True
+            return None
+
+        try:
+            _DOC_CONVERTER = DocumentConverter(allowed_formats=[InputFormat.PDF])
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"[OCR] Failed to initialise Docling: {exc}")
+            _DOC_CONVERTER_FAILED = True
+            return None
+
+        return _DOC_CONVERTER
+
+
+def _docling_conversion_payload(
+    conversion: "ConversionResult",
+) -> tuple[str, Dict[str, str]]:
+    """Extract text and supporting artefacts from a Docling conversion."""
+
+    attachments: Dict[str, str] = {}
+
+    def _export_markdown(doc: Any, strict_text: bool) -> str:
+        try:
+            return doc.export_to_markdown(strict_text=strict_text)
+        except TypeError:
+            if strict_text:
+                try:
+                    return doc.export_to_markdown()
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    print(f"[OCR] Docling markdown export failed: {exc}")
+                    return ""
+            print("[OCR] Docling markdown export received unexpected arguments")
+            return ""
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"[OCR] Docling markdown export failed: {exc}")
+            return ""
+
+    def _export_dict(doc: Any) -> Dict[str, Any] | None:
+        try:
+            return doc.export_to_dict()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"[OCR] Docling dictionary export failed: {exc}")
+            return None
+
+    raw_text = ""
+    document = getattr(conversion, "document", None)
+    if document is not None:
+        raw_text = _export_markdown(document, strict_text=True)
+        pretty_md = _export_markdown(document, strict_text=False)
+        if pretty_md:
+            attachments["docling_markdown.md"] = pretty_md
+        doc_dict = _export_dict(document)
+        if doc_dict is not None:
+            attachments["docling_document.json"] = json.dumps(
+                _json_safe_copy(doc_dict), indent=2, ensure_ascii=False
+            )
+
+    if not raw_text:
+        legacy_doc = getattr(conversion, "legacy_document", None)
+        if legacy_doc is not None:
+            raw_text = _export_markdown(legacy_doc, strict_text=True)
+            pretty_md = _export_markdown(legacy_doc, strict_text=False)
+            if pretty_md and "docling_markdown.md" not in attachments:
+                attachments["docling_markdown.md"] = pretty_md
+            legacy_dict = _export_dict(legacy_doc)
+            if legacy_dict is not None and "docling_document.json" not in attachments:
+                attachments["docling_document.json"] = json.dumps(
+                    _json_safe_copy(legacy_dict), indent=2, ensure_ascii=False
+                )
+
+    metadata = {
+        "status": getattr(conversion, "status", None),
+        "page_count": len(getattr(conversion, "pages", []) or []),
+        "source": str(getattr(getattr(conversion, "input", None), "file", "")),
+    }
+    attachments["docling_metadata.json"] = json.dumps(
+        _json_safe_copy(metadata), indent=2, ensure_ascii=False
+    )
+
+    return raw_text, attachments
 
 
 def _debug(message: str) -> None:
@@ -2173,12 +2280,7 @@ def schematize_experiment(
 
 
 def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
-    """Perform OCR on *pdf_name* and write ``.txt`` output.
-
-    Image files generated during OCR are compressed into a ``.zip`` archive
-    saved alongside the PDF and text files.
-
-    Added troubleshooting messages for easier debugging of failures."""
+    """Perform OCR on *pdf_name* using Docling and write ``.txt`` output."""
 
     print(f"[OCR] Starting OCR for '{pdf_name}' in directory '{pdf_dir}'.")
 
@@ -2189,70 +2291,44 @@ def ocr_pdf(pdf_name: str, pdf_dir: Path = _PDF_DIR) -> Path | None:
         return None
 
     txt_path = pdf_path.with_suffix(".txt")
-    tesseract = shutil.which("tesseract")
-    pdftoppm = shutil.which("pdftoppm")
-    if not tesseract or not pdftoppm:
-        print(
-            "[OCR] Required OCR tools missing; attempting direct text extraction fallback."
-        )
+
+    converter = _get_docling_converter()
+    if converter is None:
+        print("[OCR] Docling unavailable; attempting fallback extraction.")
         return _ocr_pdf_fallback(pdf_path, txt_path)
 
-    tmpdir = tempfile.mkdtemp(prefix="ocr_")
-    print(f"[OCR] Temporary directory for image pages: {tmpdir}")
     try:
-        print(f"[OCR] Running pdftoppm to convert PDF pages to images...")
-        subprocess.run(
-            [
-                "pdftoppm",
-                "-q",
-                str(pdf_path),
-                str(Path(tmpdir) / "page"),
-                "-png",
-            ],
-            check=True,
-            stderr=subprocess.DEVNULL,
-        )
-
-        images = sorted(Path(tmpdir).glob("page-*.png"))
-        print(f"[OCR] Found {len(images)} page image(s) to process.")
-        text_chunks: list[str] = []
-        for img in images:
-            print(f"[OCR] Processing image: {img}")
-            result = subprocess.run(
-                ["tesseract", str(img), "stdout", "-l", "eng"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            text_chunks.append(result.stdout)
-            print(f"[OCR] Wrote {len(result.stdout)} characters from {img}.")
-
-        raw_text = "".join(text_chunks)
-
-        cleaned_text = _cleanup_ocr_text(raw_text)
-
-        with txt_path.open("w", encoding="utf-8") as out:
-            out.write(cleaned_text)
-
-        archive_path = pdf_path.with_suffix(".zip")
-        print(f"[OCR] Saving page images to archive {archive_path}")
-        try:
-            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                for img in images:
-                    zf.write(img, arcname=img.name)
-        except Exception as exc:
-            print(f"[OCR] Failed to create archive: {exc}")
-    except subprocess.CalledProcessError as exc:
-        print(f"[OCR] Subprocess failed: {exc}")
-        return None
+        conversion = converter.convert(str(pdf_path))
     except Exception as exc:
-        print(f"[OCR] Unexpected failure: {exc}")
-        return None
-    finally:
-        print(f"[OCR] Cleaning up temporary directory {tmpdir}")
-        shutil.rmtree(tmpdir, ignore_errors=True)
+        print(f"[OCR] Docling conversion failed: {exc}")
+        return _ocr_pdf_fallback(pdf_path, txt_path)
 
-    print(f"[OCR] Saved OCR text to {txt_path}")
+    raw_text, attachments = _docling_conversion_payload(conversion)
+    if not raw_text.strip():
+        print("[OCR] Docling returned no text; falling back to direct extraction.")
+        return _ocr_pdf_fallback(pdf_path, txt_path)
+
+    cleaned_text = _cleanup_ocr_text(raw_text)
+
+    try:
+        txt_path.write_text(cleaned_text, encoding="utf-8")
+    except Exception as exc:
+        print(f"[OCR] Failed to write OCR text: {exc}")
+        return None
+
+    archive_path = pdf_path.with_suffix(".zip")
+    if not attachments:
+        attachments["docling_text.txt"] = cleaned_text
+
+    try:
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for name, content in attachments.items():
+                data = content.encode("utf-8") if isinstance(content, str) else content
+                zf.writestr(name, data)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print(f"[OCR] Failed to create Docling archive: {exc}")
+
+    print(f"[OCR] Saved Docling OCR text to {txt_path}")
     return txt_path
 
 

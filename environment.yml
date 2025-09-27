@@ -22,4 +22,5 @@ dependencies:
       - fpdf2
       - fpdf
       - brotli
+      - docling
       - pytest

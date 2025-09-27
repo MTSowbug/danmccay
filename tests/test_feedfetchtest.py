@@ -1023,6 +1023,28 @@ def test_ocr_pdf(monkeypatch, tmp_path):
     pdf.cell(40, 10, 'OCR Test')
     pdf.output(str(pdf_path))
 
+    class FakeDoc:
+        def export_to_markdown(self, strict_text=False):
+            if strict_text:
+                return 'OCR Test from Docling'
+            return '# Heading\nOCR Test from Docling'
+
+        def export_to_dict(self):
+            return {'content': ['OCR', 'Test']}
+
+    class FakeResult:
+        def __init__(self):
+            self.document = FakeDoc()
+            self.legacy_document = FakeDoc()
+            self.status = 'SUCCESS'
+            self.pages = []
+            self.input = types.SimpleNamespace(file=pdf_path.name)
+
+    class FakeConverter:
+        def convert(self, source):
+            assert source == str(pdf_path)
+            return FakeResult()
+
     class FakeResp:
         class choice:
             def __init__(self):
@@ -1038,6 +1060,7 @@ def test_ocr_pdf(monkeypatch, tmp_path):
     monkeypatch.setattr(
         fft, 'openai', types.SimpleNamespace(OpenAI=lambda: FakeClient())
     )
+    monkeypatch.setattr(fft, '_get_docling_converter', lambda: FakeConverter())
 
     out = fft.ocr_pdf('t.pdf', pdf_dir=tmp_path)
     assert out == pdf_path.with_suffix('.txt')
@@ -1048,7 +1071,13 @@ def test_ocr_pdf(monkeypatch, tmp_path):
     assert archive.is_file()
     import zipfile
     with zipfile.ZipFile(archive) as zf:
-        assert zf.namelist()
+        names = set(zf.namelist())
+        assert 'docling_markdown.md' in names
+        assert 'docling_document.json' in names
+        markdown = zf.read('docling_markdown.md').decode('utf-8')
+        assert 'Heading' in markdown
+        data = json.loads(zf.read('docling_document.json').decode('utf-8'))
+        assert data['content'] == ['OCR', 'Test']
 
 
 def test_fetch_pdf_for_article(monkeypatch, tmp_path):

@@ -22,20 +22,28 @@ This repository contains experimental tools for interacting with the *Cleft of D
    ```bash
    conda create -n mccay python=3.12 pandas numpy pyyaml jq pandoc
    conda activate mccay
-   pip install openai anthropic feedparser dill strip-ansi PyPDF2 brotli
+   pip install openai anthropic feedparser dill strip-ansi PyPDF2 brotli docling
    ```
 
    The environment includes the `jq` utility so shell commands in
    `feedfetchtest.py` can easily process JSON data. It also installs
    `pandoc` so article summaries can be converted to PDFs. If you prefer
    not to install these via conda, you can use your system package
-   manager, e.g. `sudo apt-get install jq pandoc` on Ubuntu. The OCR
-   helper requires both `pdftoppm` (from the `poppler` package) and
-   `tesseract`. On Ubuntu you can get them with:
+   manager, e.g. `sudo apt-get install jq pandoc` on Ubuntu.
+
+   OCR is now powered by [Docling](https://github.com/docling-project/docling).
+   Installing Docling pulls in PyTorch and an OCR backend (EasyOCR by
+   default), so the initial install can be sizable. On Linux systems that
+   only need CPU support you can dramatically reduce the download by using
+   the PyTorch CPU wheel:
 
    ```bash
-   sudo apt-get install poppler-utils tesseract-ocr
+   pip install docling --extra-index-url https://download.pytorch.org/whl/cpu
    ```
+
+   Docling will download the required OCR models on first use. If Docling
+   is not available the code falls back to the legacy `PyPDF2` text
+   extractor, but accuracy is best with Docling enabled.
 
 4. **Set API keys** for services you intend to use:
    ```bash
